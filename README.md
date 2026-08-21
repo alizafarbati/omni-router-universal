@@ -326,7 +326,7 @@ Use any **explicit model ID** from `/v1/models` (e.g. `nvidia/nemotron-3-ultra-5
 | **Novita** | referral credits | Llama 3.3 70B | `NOVITA_KEY` |
 | **DeepSeek** | direct paid API | deepseek-chat, deepseek-reasoner | `DEEPSEEK_KEY` |
 
-> **Target:** ~**600M–1B+ tokens/month** when all providers are stacked. You will run out of **time, not tokens**.
+> **Target:** ~**10M tokens/month free** (60 req/day Gemini ×3 + 50/day OpenRouter) → **~210M with Go sub** → **~600M-1B+ with $10 OpenRouter unlock + more accounts**. Daily **request caps** (not token caps) are the limiter — honest math, not hype.
 
 ---
 
@@ -496,7 +496,7 @@ pytest -q -k "not harness"  # fast, no live AI calls
 
 ## ❓ FAQ
 
-**How many tokens/month?** ~600M–1B+ with all free tiers stacked. Daily request caps (not token caps) are the limiter.
+**How many tokens/month?** ~10M free (honest), ~210M with Go sub, ~600M-1B+ if you stack the $10 OpenRouter unlock + more Google accounts. Request caps, not token caps, are the limiter.
 
 **Do I need all providers?** No — one free key is enough to start. Each extra key multiplies your quota.
 

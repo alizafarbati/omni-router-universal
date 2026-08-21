@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## [0.4.1] - 2026-08-21
+
+### Fixed
+- **Lint**: split imports, remove unused sys/io (E401, F401).
+- **DoS hardening**: 413 Request Too Large for bodies >200KB.
+- **Honest docs**: README now says honest ~10M free / ~210M with Go sub instead of inflated 600M per free tier.
+- **Tests**: mocked provider tests so CI actually exercises routing (was 31% → 38% coverage, 53 tests).
+
 ## [0.4.0] - 2026-08-21
 
 ### Added
@@ -33,4 +41,5 @@ All notable changes to this project will be documented in this file.
 ## [0.1.0] - 2026-08-21
 
 - Initial public release â€” smart free-tier router (Gemini Ã—3 rotation, OpenRouter 20 free models, NVIDIA NIM, Go sub, capability routing, OpenAI + Anthropic dual API, gateway discovery, health dashboard).
+
 

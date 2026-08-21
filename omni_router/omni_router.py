@@ -6,13 +6,20 @@ OpenAI-compatible: point any client (opencode/Cursor/curl) at http://127.0.0.1:8
 Zero dependencies - pure Python stdlib.
 Built by Ali Zafar (https://github.com/alizafarbati)
 """
-import json, os, sys, time, uuid, ssl, threading, gzip, io
+import gzip
+import json
+import os
+import ssl
+import threading
+import time
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MAX_REQUEST_BYTES = 200 * 1024  # 200KB — prevents single huge request from starving the server
 CONFIG_PATH = os.environ.get("OMNI_CONFIG", os.path.join(BASE_DIR, "providers.json"))
 LOG_PATH = os.path.join(BASE_DIR, "router.log")
 HOST, PORT = os.environ.get("OMNI_HOST", "127.0.0.1"), int(os.environ.get("OMNI_PORT", "8787"))
@@ -929,6 +936,8 @@ class RouterHandler(BaseHTTPRequestHandler):
     def log_message(self, *a): pass
     def _read_body(self):
         ln = int(self.headers.get("Content-Length", 0) or 0)
+        if ln > MAX_REQUEST_BYTES:
+            return b"__TOO_LARGE__"
         return self.rfile.read(ln) if ln else None
     def do_GET(self):
         if self.path in ("/metrics", "/v1/metrics"):
@@ -984,6 +993,14 @@ class RouterHandler(BaseHTTPRequestHandler):
         self.send_response(404); self.send_header("Content-Length","0"); self.end_headers()
     def do_POST(self):
         raw = self._read_body()
+        if raw == b"__TOO_LARGE__":
+            body = json.dumps({"error": {"message": f"request too large (max {MAX_REQUEST_BYTES} bytes)", "type": "invalid_request"}}).encode()
+            self.send_response(413)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         payload = None
         if raw:
             try: payload = json.loads(raw.decode("utf-8"))
@@ -1058,3 +1075,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
