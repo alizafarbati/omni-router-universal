@@ -1,0 +1,125 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: omni-router
+  labels:
+    app: omni-router
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8787
+      targetPort: 8787
+      name: http
+  selector:
+    app: omni-router
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: omni-router
+  labels:
+    app: omni-router
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: omni-router
+  template:
+    metadata:
+      labels:
+        app: omni-router
+    spec:
+      containers:
+        - name: omni-router
+          image: ghcr.io/alizafarbati/omni-router-universal:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8787
+              name: http
+          env:
+            - name: OMNI_HOST
+              value: "0.0.0.0"
+            - name: OMNI_PORT
+              value: "8787"
+            - name: OPENROUTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: omni-router-secrets
+                  key: OPENROUTER_KEY
+                  optional: true
+            - name: GOOGLE_AI_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: omni-router-secrets
+                  key: GOOGLE_AI_KEY
+                  optional: true
+            - name: NVIDIA_NIM_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: omni-router-secrets
+                  key: NVIDIA_NIM_KEY
+                  optional: true
+            - name: GROQ_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: omni-router-secrets
+                  key: GROQ_KEY
+                  optional: true
+            - name: CEREBRAS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: omni-router-secrets
+                  key: CEREBRAS_KEY
+                  optional: true
+            - name: GH_PAT
+              valueFrom:
+                secretKeyRef:
+                  name: omni-router-secrets
+                  key: GH_PAT
+                  optional: true
+            - name: OPENCODE_GO_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: omni-router-secrets
+                  key: OPENCODE_GO_KEY
+                  optional: true
+            - name: DEEPSEEK_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: omni-router-secrets
+                  key: DEEPSEEK_KEY
+                  optional: true
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8787
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8787
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: omni-router-secrets
+type: Opaque
+stringData:
+  OPENROUTER_KEY: ""
+  GOOGLE_AI_KEY: ""
+  NVIDIA_NIM_KEY: ""
+  GROQ_KEY: ""
+  CEREBRAS_KEY: ""
+  GH_PAT: ""
+  OPENCODE_GO_KEY: ""
+  DEEPSEEK_KEY: ""

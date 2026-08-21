@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "omni-router"
-version = "0.3.0"
-description = "Smart free-tier AI router â€” pool every free provider into one OpenAI + Anthropic endpoint"
+version = "0.4.0"
+description = "Smart free-tier AI router Ã¢â‚¬â€ pool every free provider into one OpenAI + Anthropic endpoint"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"

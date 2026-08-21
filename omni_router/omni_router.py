@@ -1,16 +1,17 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-OMNI-ROUTER v1.0 - GOD SYNDICATE FREE-TIER AI ROUTER
+OMNI-ROUTER v0.3.0 - Smart Free-Tier AI Router
 Pools every free/cheap provider, routes smartly with health tracking & cooldowns.
 OpenAI-compatible: point any client (opencode/Cursor/curl) at http://127.0.0.1:8787/v1
 Zero dependencies - pure Python stdlib.
+Built by Ali Zafar (https://github.com/alizafarbati)
 """
 import json, os, sys, time, uuid, ssl, threading, gzip, io
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
-VERSION = "1.0"
+VERSION = "0.4.0"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.environ.get("OMNI_CONFIG", os.path.join(BASE_DIR, "providers.json"))
 LOG_PATH = os.path.join(BASE_DIR, "router.log")
@@ -764,6 +765,8 @@ def model_list():
     ids.update(MODEL_META.keys())
     ids.update(CAP_ROUTERS.keys())
     ids.update(["openrouter/free"])
+    with AUTO_MODELS_LOCK:
+        ids.update(AUTO_MODELS)
     data = [{"id": i, "object": "model", "owned_by": "omni-router"} for i in sorted(ids)]
     return {"object": "list", "data": data}
 
@@ -778,6 +781,8 @@ def model_list_anthropic():
     ids.update(MODEL_META.keys())
     ids.update(CAP_ROUTERS.keys())
     ids.update(["openrouter/free"])
+    with AUTO_MODELS_LOCK:
+        ids.update(AUTO_MODELS)
     created = 1787200000
     data = []
     for i in sorted(ids):
@@ -1000,11 +1005,48 @@ class RouterHandler(BaseHTTPRequestHandler):
             except Exception:
                 pass
 
+# ---------------------------------------------------------------- auto model-catalog refresh
+AUTO_MODELS = set()
+AUTO_MODELS_LOCK = threading.Lock()
+
+
+def refresh_model_catalog():
+    """Fetch free models from OpenRouter and update AUTO_MODELS (hourly)."""
+    if os.environ.get("OMNI_AUTO_REFRESH", "1") == "0":
+        return
+    try:
+        req = Request("https://openrouter.ai/api/v1/models", headers={"User-Agent": "OmniRouter"})
+        with urlopen(req, timeout=15, context=CTX) as resp:
+            data = json.load(resp)
+            free = [m["id"] for m in data.get("data", []) if m.get("pricing", {}).get("prompt") == "0" or ":free" in m.get("id", "")]
+            with AUTO_MODELS_LOCK:
+                AUTO_MODELS.clear()
+                AUTO_MODELS.update(free)
+            log(f"  auto-refresh: {len(free)} free models from OpenRouter")
+    except Exception as e:
+        log(f"  auto-refresh failed: {e}")
+
+
+def start_auto_refresh():
+    if os.environ.get("OMNI_AUTO_REFRESH", "1") == "0":
+        return
+    def _initial():
+        time.sleep(30)
+        refresh_model_catalog()
+    def _loop():
+        while True:
+            time.sleep(3600)
+            refresh_model_catalog()
+    threading.Thread(target=_initial, daemon=True).start()
+    threading.Thread(target=_loop, daemon=True).start()
+
+
 def main():
     log(f"OMNI-ROUTER {VERSION} starting on http://{HOST}:{PORT}  (config: {CONFIG_PATH})")
     for p in PROVIDERS:
         key = (p.get("api_key") or os.environ.get(p.get("key_env",""), ""))[:8] + "..." if (p.get("api_key") or os.environ.get(p.get("key_env",""), "")) else ""
         log(f"  provider: {p['name']:<24} key={'SET('+key+')' if key else 'MISSING':<20} models={p.get('models')}")
+    start_auto_refresh()
     try:
         srv = ThreadingHTTPServer((HOST, PORT), RouterHandler)
         log("READY. Point opencode/curl at http://127.0.0.1:8787/v1")
