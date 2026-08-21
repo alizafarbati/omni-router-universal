@@ -27,48 +27,64 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      - name: Install (no curl_cffi — test stdlib fallback)
+      - name: Install package (stdlib path — no curl_cffi)
         run: pip install -e . --no-deps
 
-      - name: Unit tests (stdlib path)
+      - name: Unit tests — stdlib fallback (no router, integration tests auto-skip)
         run: |
           pip install pytest
-          pytest -q
+          pytest -q -v --tb=short
+          echo "unit tests passed (integration skipped without router)"
 
-      - name: Install curl_cffi
+      - name: Install curl_cffi (browser TLS)
         run: pip install -r requirements.txt
 
-      - name: Unit tests (curl_cffi path)
-        run: pytest -q
+      - name: Unit tests — with curl_cffi
+        run: pytest -q -v --tb=short
 
-      - name: Router boots and serves /health + /v1/models
+      - name: Start router + integration tests
+        shell: bash
         run: |
           python -m omni_router &
-          sleep 6
-          python -c "import urllib.request,json; print(json.load(urllib.request.urlopen('http://127.0.0.1:8787/health'))['status'])"
-          python -c "import urllib.request,json; print(len(json.load(urllib.request.urlopen('http://127.0.0.1:8787/v1/models'))['data']), 'models')"
-        shell: bash
+          ROUTER_PID=$!
+          echo "router pid $ROUTER_PID"
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS http://127.0.0.1:8787/health >/dev/null 2>&1; then echo "router ready after $i tries"; break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8787/health | python -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok'; print('health:', d['status'], 'providers:', len(d['providers']))"
+          curl -fsS http://127.0.0.1:8787/metrics | head -5
+          curl -fsS http://127.0.0.1:8787/v1/models | python -c "import sys,json; d=json.load(sys.stdin); print('models:', len(d['data']))"
+          echo "--- running integration + harness tests (router live) ---"
+          pytest -q -v --tb=short -k "live or harness or health or metrics"
+          kill $ROUTER_PID || true
+          echo "router stopped"
 
   docker:
     name: docker build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+
+      - name: Build image
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: false
           load: true
           tags: omni-router:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Smoke — container serves /health
+
+      - name: Smoke — container serves /health + /metrics + /v1/models
         run: |
           docker run -d --name omni -p 8787:8787 omni-router:test
-          for i in 1 2 3 4 5 6; do
-            if curl -fsS http://127.0.0.1:8787/health >/dev/null 2>&1; then break; fi
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS http://127.0.0.1:8787/health >/dev/null 2>&1; then echo "container ready after $i tries"; break; fi
             sleep 3
           done
-          curl -fsS http://127.0.0.1:8787/health | python -c "import sys,json; assert json.load(sys.stdin)['status']=='ok'; print('docker OK')"
+          curl -fsS http://127.0.0.1:8787/health | python -c "import sys,json; assert json.load(sys.stdin)['status']=='ok'; print('health OK')"
+          curl -fsS http://127.0.0.1:8787/metrics | grep -q omni_router_requests_total && echo "metrics OK"
+          curl -fsS http://127.0.0.1:8787/v1/models | python -c "import sys,json; d=json.load(sys.stdin); assert len(d['data'])>=20; print('models OK:', len(d['data']))"
           docker rm -f omni
+          echo "docker smoke passed"
