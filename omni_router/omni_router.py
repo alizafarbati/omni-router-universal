@@ -14,7 +14,7 @@ VERSION = "1.0"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.environ.get("OMNI_CONFIG", os.path.join(BASE_DIR, "providers.json"))
 LOG_PATH = os.path.join(BASE_DIR, "router.log")
-HOST, PORT = "127.0.0.1", int(os.environ.get("OMNI_PORT", "8787"))
+HOST, PORT = os.environ.get("OMNI_HOST", "127.0.0.1"), int(os.environ.get("OMNI_PORT", "8787"))
 MENU = os.path.join(BASE_DIR, "menu.txt")
 
 CTX = ssl.create_default_context()

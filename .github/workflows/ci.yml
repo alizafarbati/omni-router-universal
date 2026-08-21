@@ -79,10 +79,14 @@ jobs:
       - name: Smoke — container serves /health + /metrics + /v1/models
         run: |
           docker run -d --name omni -p 8787:8787 omni-router:test
-          for i in 1 2 3 4 5 6 7 8 9 10; do
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
             if curl -fsS http://127.0.0.1:8787/health >/dev/null 2>&1; then echo "container ready after $i tries"; break; fi
-            sleep 3
+            echo "waiting for container... $i"
+            sleep 2
           done
+          echo "--- docker logs ---"
+          docker logs omni 2>&1 | head -30
+          echo "--- health check ---"
           curl -fsS http://127.0.0.1:8787/health | python -c "import sys,json; assert json.load(sys.stdin)['status']=='ok'; print('health OK')"
           curl -fsS http://127.0.0.1:8787/metrics | grep -q omni_router_requests_total && echo "metrics OK"
           curl -fsS http://127.0.0.1:8787/v1/models | python -c "import sys,json; d=json.load(sys.stdin); assert len(d['data'])>=20; print('models OK:', len(d['data']))"
