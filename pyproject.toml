@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "omni-router"
+version = "0.2.0"
+description = "Smart free-tier AI router — pool every free provider into one OpenAI + Anthropic endpoint"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+keywords = ["llm", "router", "ai-gateway", "free-ai", "openai", "anthropic", "claude-code", "openrouter", "gemini"]
+authors = [{name = "Ali Zafar", email = "alizafarbati@users.noreply.github.com"}]
+maintainers = [{name = "Ali Zafar"}]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+  "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.optional-dependencies]
+tls = ["curl_cffi>=0.7.0"]
+all = ["curl_cffi>=0.7.0"]
+
+[project.urls]
+Homepage = "https://github.com/alizafarbati/omni-router-universal"
+Repository = "https://github.com/alizafarbati/omni-router-universal"
+Issues = "https://github.com/alizafarbati/omni-router-universal/issues"
+Changelog = "https://github.com/alizafarbati/omni-router-universal/blob/main/CHANGELOG.md"
+
+[project.scripts]
+omni-router = "omni_router.omni_router:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["omni_router"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "C90"]
+ignore = ["E501"]
+
+[tool.coverage.run]
+source = ["omni_router"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true

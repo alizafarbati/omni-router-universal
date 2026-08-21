@@ -1,0 +1,6 @@
+{
+  "keys": {
+    "sk-client-demo-001": { "name": "alice", "rpm": 60, "daily_limit": 1000 },
+    "sk-client-demo-002": { "name": "bob", "rpm": 30, "daily_limit": 500 }
+  }
+}

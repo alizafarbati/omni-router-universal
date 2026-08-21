@@ -1,0 +1,32 @@
+services:
+  omni-router:
+    build: .
+    image: omni-router:local
+    container_name: omni-router
+    ports:
+      - "${OMNI_PORT:-8787}:8787"
+    environment:
+      # --- Required: set at least one free provider key ---
+      - OPENROUTER_KEY=${OPENROUTER_KEY:-}
+      - GOOGLE_AI_KEY=${GOOGLE_AI_KEY:-}
+      - NVIDIA_NIM_KEY=${NVIDIA_NIM_KEY:-}
+      - GROQ_KEY=${GROQ_KEY:-}
+      - CEREBRAS_KEY=${CEREBRAS_KEY:-}
+      - GH_PAT=${GH_PAT:-}
+      # --- Optional ---
+      - CF_KEY=${CF_KEY:-}
+      - CF_ACCOUNT_ID=${CF_ACCOUNT_ID:-}
+      - MISTRAL_KEY=${MISTRAL_KEY:-}
+      - DEEPSEEK_KEY=${DEEPSEEK_KEY:-}
+      - OPENCODE_GO_KEY=${OPENCODE_GO_KEY:-}
+      - OMNI_PORT=8787
+      - OMNI_HOST=0.0.0.0
+    volumes:
+      # Mount a local providers.json to override defaults (optional)
+      - ./configs/providers.json:/app/configs/providers.json:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8787/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

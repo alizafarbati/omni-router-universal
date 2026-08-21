@@ -101,6 +101,79 @@ for p in PROVIDERS:
 LOCK = threading.Lock()
 MENU_ITEMS = {}
 
+# ---------------------------------------------------------------- metrics + virtual keys
+METRICS = {"requests_total": 0, "requests_failed": 0, "tokens_in": 0, "tokens_out": 0, "provider_counts": {}, "started_at": time.time()}
+
+
+def _load_virtual_keys():
+    # file: configs/virtual_keys.json  or env OMNI_VIRTUAL_KEYS (json)
+    env = os.environ.get("OMNI_VIRTUAL_KEYS", "").strip()
+    if env:
+        try:
+            d = json.loads(env)
+            return d.get("keys", d) if isinstance(d, dict) else {}
+        except Exception:
+            pass
+    for cand in (os.path.join(BASE_DIR, "..", "configs", "virtual_keys.json"), os.path.join(BASE_DIR, "virtual_keys.json")):
+        cand = os.path.abspath(cand)
+        if os.path.exists(cand):
+            try:
+                with open(cand, encoding="utf-8") as f:
+                    d = json.load(f)
+                return d.get("keys", d) if isinstance(d, dict) else {}
+            except Exception:
+                pass
+    return {}
+
+
+VIRTUAL_KEYS = _load_virtual_keys()
+
+# per-key rate-limit state: key -> {window_start, count, daily_count, daily_reset}
+VK_STATE = {}
+VK_LOCK = threading.Lock()
+
+
+def _check_virtual_key(headers):
+    if not VIRTUAL_KEYS:
+        return None, None  # open mode
+    hl = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
+    auth = hl.get("authorization", "") or hl.get("x-api-key", "")
+    # Bearer sk-...  or bare key
+    tok = auth[7:].strip() if auth.lower().startswith("bearer ") else auth.strip()
+    if not tok or tok not in VIRTUAL_KEYS:
+        return False, tok
+    # optional per-key RPM / daily limits
+    cfg = VIRTUAL_KEYS[tok] if isinstance(VIRTUAL_KEYS[tok], dict) else {}
+    rpm = int(cfg.get("rpm", 0) or 0)
+    daily = int(cfg.get("daily_limit", 0) or 0)
+    now = time.time()
+    with VK_LOCK:
+        st = VK_STATE.setdefault(tok, {"window_start": now, "count": 0, "daily_count": 0, "daily_reset": now})
+        # daily reset (24h rolling)
+        if now - st["daily_reset"] >= 86400:
+            st["daily_count"] = 0
+            st["daily_reset"] = now
+        if daily and st["daily_count"] >= daily:
+            return "daily", tok
+        # rpm window (60s)
+        if now - st["window_start"] >= 60:
+            st["window_start"] = now
+            st["count"] = 0
+        if rpm and st["count"] >= rpm:
+            return "rpm", tok
+        st["count"] += 1
+        st["daily_count"] += 1
+    return True, tok
+
+
+def _record_metrics(provider, usage):
+    with LOCK:
+        METRICS["requests_total"] += 1
+        METRICS["provider_counts"][provider] = METRICS["provider_counts"].get(provider, 0) + 1
+        if usage:
+            METRICS["tokens_in"] += int(usage.get("prompt_tokens", 0) or 0)
+            METRICS["tokens_out"] += int(usage.get("completion_tokens", 0) or 0)
+
 def mark(name, ok, err=""):
     with LOCK:
         s = STATE[name]
@@ -315,6 +388,15 @@ def route(path, headers, payload, model, smart=False):
                         STATE[p["name"]]["next"] = time.time() + 30
                 continue
             mark(p["name"], True)
+            # metrics: parse usage if non-stream
+            usage = None
+            if not isinstance(body, bool):
+                try:
+                    _j = json.loads(body)
+                    usage = _j.get("usage")
+                except Exception:
+                    pass
+            _record_metrics(p["name"], usage)
             return {"provider":p["name"], "response":resp, "ct":ct, "body":body,
                     "stream": isinstance(body, bool), "attempts":attempts, "ms":int((time.time()-t0)*1000)}
         except HTTPError as e:
@@ -668,7 +750,55 @@ def model_list_anthropic():
     return {"data": data, "has_more": False, "first_id": data[0]["id"] if data else None,
             "last_id": data[-1]["id"] if data else None}
 
+def _metrics_text():
+    up = int(time.time() - METRICS["started_at"])
+    lines = [
+        "# HELP omni_router_requests_total Total proxied requests",
+        "# TYPE omni_router_requests_total counter",
+        f"omni_router_requests_total {METRICS['requests_total']}",
+        "# HELP omni_router_requests_failed Total failed requests",
+        "# TYPE omni_router_requests_failed counter",
+        f"omni_router_requests_failed {METRICS['requests_failed']}",
+        "# HELP omni_router_tokens_input Total prompt tokens proxied",
+        "# TYPE omni_router_tokens_input counter",
+        f"omni_router_tokens_input {METRICS['tokens_in']}",
+        "# HELP omni_router_tokens_output Total completion tokens proxied",
+        "# TYPE omni_router_tokens_output counter",
+        f"omni_router_tokens_output {METRICS['tokens_out']}",
+        "# HELP omni_router_uptime_seconds Uptime in seconds",
+        "# TYPE omni_router_uptime_seconds gauge",
+        f"omni_router_uptime_seconds {up}",
+    ]
+    for prov, cnt in METRICS["provider_counts"].items():
+        safe = prov.replace("-", "_").replace(".", "_").replace("[", "_").replace("]", "")
+        lines.append(f'omni_router_provider_requests{{provider="{prov}"}} {cnt}')
+    return "\n".join(lines) + "\n"
+
+
 def handle(handler, path, headers, payload):
+    # virtual-key gate (if configured)
+    if VIRTUAL_KEYS and path not in ("/health", "/v1/health", "/metrics", "/v1/metrics"):
+        ok, tok = _check_virtual_key(headers)
+        if ok is False:
+            body = json.dumps({"error": {"message": "invalid virtual key", "type": "authentication_error"}}).encode()
+            handler.send_response(401)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(body)))
+            handler.end_headers()
+            handler.wfile.write(body)
+            with LOCK:
+                METRICS["requests_failed"] += 1
+            return True
+        if ok in ("rpm", "daily"):
+            body = json.dumps({"error": {"message": f"virtual key rate limited ({ok})", "type": "rate_limit_error"}}).encode()
+            handler.send_response(429)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(body)))
+            handler.end_headers()
+            handler.wfile.write(body)
+            with LOCK:
+                METRICS["requests_failed"] += 1
+            return True
     if path == "/v1/models" or path == "/models":
         hl = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
         ua = hl.get("user-agent", "")
@@ -746,6 +876,14 @@ class RouterHandler(BaseHTTPRequestHandler):
         ln = int(self.headers.get("Content-Length", 0) or 0)
         return self.rfile.read(ln) if ln else None
     def do_GET(self):
+        if self.path in ("/metrics", "/v1/metrics"):
+            body = _metrics_text().encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; version=0.0.4")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path in ("/health","/v1/health"):
             body = json.dumps({"status":"ok","version":VERSION,"providers":{k:{"s":STATE[k]["status"],"err":STATE[k]["last_err"],"ok":STATE[k]["ok"],"fail":STATE[k]["fail"]} for k in STATE}}).encode()
             self.send_response(200); self.send_header("Content-Type","application/json")
@@ -757,6 +895,7 @@ class RouterHandler(BaseHTTPRequestHandler):
             body = json.dumps(out).encode()
             self.send_response(200); self.send_header("Content-Type","application/json")
             self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
+        log(f"  404 GET {self.path}")
         self.send_response(404); self.send_header("Content-Length","0"); self.end_headers()
     def do_POST(self):
         raw = self._read_body()
