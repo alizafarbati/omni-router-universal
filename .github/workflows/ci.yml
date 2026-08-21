@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: test (${{ matrix.os }} / py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.9", "3.11", "3.12"]
+        exclude:
+          - os: macos-latest
+            python-version: "3.9"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install (no curl_cffi — test stdlib fallback)
+        run: pip install -e . --no-deps
+
+      - name: Unit tests (stdlib path)
+        run: |
+          pip install pytest
+          pytest -q
+
+      - name: Install curl_cffi
+        run: pip install -r requirements.txt
+
+      - name: Unit tests (curl_cffi path)
+        run: pytest -q
+
+      - name: Router boots and serves /health + /v1/models
+        run: |
+          python -m omni_router &
+          sleep 6
+          python -c "import urllib.request,json; print(json.load(urllib.request.urlopen('http://127.0.0.1:8787/health'))['status'])"
+          python -c "import urllib.request,json; print(len(json.load(urllib.request.urlopen('http://127.0.0.1:8787/v1/models'))['data']), 'models')"
+        shell: bash
+
+  docker:
+    name: docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: omni-router:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke — container serves /health
+        run: |
+          docker run -d --name omni -p 8787:8787 omni-router:test
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS http://127.0.0.1:8787/health >/dev/null 2>&1; then break; fi
+            sleep 3
+          done
+          curl -fsS http://127.0.0.1:8787/health | python -c "import sys,json; assert json.load(sys.stdin)['status']=='ok'; print('docker OK')"
+          docker rm -f omni
