@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OmniRouter — Dashboard</title>
+<style>
+  :root{--bg:#0a0a0f;--card:#14141f;--border:#23233a;--text:#e6e6ff;--muted:#8a8ab0;--accent:#6c5cff;--ok:#00d492;--warn:#ffb020;--err:#ff3b5c;--blue:#3b82f6}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Inter,system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  a{color:var(--accent);text-decoration:none}
+  header{position:sticky;top:0;z-index:10;background:rgba(10,10,15,.9);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+  header h1{font-size:18px;font-weight:700;letter-spacing:-.02em}
+  header h1 span{color:var(--accent)}
+  header .meta{font-size:12px;color:var(--muted);display:flex;gap:16px;align-items:center}
+  .badge{font-size:11px;padding:3px 8px;border-radius:20px;background:var(--card);border:1px solid var(--border);color:var(--muted)}
+  .badge.ok{color:var(--ok);border-color:rgba(0,212,146,.3);background:rgba(0,212,146,.08)}
+  .badge.err{color:var(--err);border-color:rgba(255,59,92,.3);background:rgba(255,59,92,.08)}
+  main{max-width:1280px;margin:0 auto;padding:24px}
+  .grid{display:grid;gap:16px}
+  .grid-4{grid-template-columns:repeat(4,1fr)}
+  .grid-2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:900px){.grid-4{grid-template-columns:repeat(2,1fr)}.grid-2{grid-template-columns:1fr}}
+  @media(max-width:600px){.grid-4{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+  .card h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px}
+  .card .val{font-size:28px;font-weight:700;letter-spacing:-.03em}
+  .card .sub{font-size:12px;color:var(--muted);margin-top:4px}
+  .providers{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+  .prov{border-radius:10px;padding:14px;background:var(--card);border:1px solid var(--border);position:relative;overflow:hidden}
+  .prov::before{content:"";position:absolute;top:0;left:0;right:0;height:2px}
+  .prov.ok::before{background:var(--ok)}
+  .prov.cool::before{background:var(--warn)}
+  .prov.err::before{background:var(--err)}
+  .prov.untested::before{background:var(--muted)}
+  .prov h4{font-size:13px;font-weight:600}
+  .prov .row{font-size:12px;color:var(--muted);margin-top:4px;display:flex;justify-content:space-between}
+  .models{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .tag{font-size:11px;padding:3px 7px;border-radius:20px;background:rgba(108,92,255,.12);border:1px solid rgba(108,92,255,.25);color:#a99cff}
+  .tag.free{border-color:rgba(0,212,146,.25);background:rgba(0,212,146,.08);color:#6ee7b7}
+  .tag.paid{border-color:rgba(255,176,32,.25);background:rgba(255,176,32,.08);color:#fcd34d}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:left;padding:8px;border-bottom:1px solid var(--border)}
+  td{padding:8px;border-bottom:1px solid rgba(35,35,58,.6);color:var(--text)}
+  td.muted{color:var(--muted)}
+  .cap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+  .cap{padding:12px;border-radius:10px;background:var(--card);border:1px solid var(--border);text-align:center}
+  .cap b{font-size:13px}
+  .cap .m{font-size:12px;color:var(--accent);margin-top:4px;word-break:break-all}
+  input[type=search]{width:100%;padding:8px 12px;border-radius:8px;background:#0f0f1a;border:1px solid var(--border);color:var(--text);font-size:13px;outline:none}
+  input[type=search]:focus{border-color:var(--accent)}
+  footer{padding:24px;text-align:center;font-size:12px;color:var(--muted);border-top:1px solid var(--border);margin-top:24px}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>◈</span> OmniRouter <small style="font-weight:400;color:var(--muted)" id="ver"></small></h1>
+  <div class="meta">
+    <span id="uptime"></span>
+    <span class="badge" id="status">checking…</span>
+    <span class="badge" id="clock"></span>
+  </div>
+</header>
+<main>
+  <div class="grid grid-4" id="kpis"></div>
+  <div style="height:16px"></div>
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>Providers — health & cooldowns</h3>
+      <div class="providers" id="providers"></div>
+    </div>
+    <div class="card">
+      <h3>Capability routing</h3>
+      <div class="cap-grid" id="caps"></div>
+      <div class="sub" style="margin-top:8px">Auto-picks the best free model per task. Use <code>router-code</code> / <code>router-reason</code> / <code>router-vision</code> / <code>router-fast</code> / <code>router-long</code>.</div>
+    </div>
+  </div>
+  <div style="height:16px"></div>
+  <div class="card">
+    <h3>Models — 47 available</h3>
+    <input type="search" id="q" placeholder="Filter models (e.g. gemini, nemotron, free, 1M)…">
+    <div class="models" id="models" style="margin-top:10px"></div>
+    <table style="margin-top:12px">
+      <thead><tr><th>Model</th><th>Provider</th><th>Tags</th></tr></thead>
+      <tbody id="modelRows"></tbody>
+    </table>
+  </div>
+  <div style="height:16px"></div>
+  <div class="card">
+    <h3>Recent requests — last 100</h3>
+    <table>
+      <thead><tr><th>Time</th><th>Model</th><th>Provider</th><th>Tokens</th><th>ms</th><th>Status</th></tr></thead>
+      <tbody id="logs"><tr><td colspan="6" class="muted">No requests yet — try <code>curl http://127.0.0.1:8787/v1/chat/completions</code></td></tr></tbody>
+    </table>
+  </div>
+  <div style="height:16px"></div>
+  <div class="card">
+    <h3>Prometheus</h3>
+    <div class="sub"><code>GET /metrics</code> — scrape with Prometheus. <code>GET /health</code> — JSON. <code>GET /v1/models</code> — OpenAI or Anthropic format by header.</div>
+    <pre id="metrics" style="margin-top:8px;max-height:160px;overflow:auto;background:#0f0f1a;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:11px;white-space:pre-wrap"></pre>
+  </div>
+</main>
+<footer>
+  OmniRouter — Smart free-tier AI router · <a href="https://github.com/alizafarbati/omni-router-universal">GitHub</a> · MIT © 2026 Ali Zafar
+</footer>
+<script>
+const $ = s => document.querySelector(s);
+const fmt = n => n.toLocaleString();
+const ago = s => { if(s<60) return s+'s'; if(s<3600) return Math.floor(s/60)+'m'; if(s<86400) return Math.floor(s/3600)+'h'; return Math.floor(s/86400)+'d'; };
+let allModels=[];
+async function jget(p, h={}){ const r=await fetch(p,{headers:h}); if(!r.ok) throw new Error(r.status); return r.json();}
+async function tget(p){ const r=await fetch(p); return r.text();}
+async function refresh(){
+  try{
+    const h = await jget('/health');
+    $('#ver').textContent = 'v' + (h.version||'1.0');
+    $('#status').textContent = h.status==='ok' ? '● live' : h.status;
+    $('#status').className = 'badge ' + (h.status==='ok'?'ok':'err');
+    // uptime from metrics if available
+    try{ const m=await tget('/metrics'); const mt=m.match(/omni_router_uptime_seconds (\d+)/); if(mt) $('#uptime').textContent='up '+ago(parseInt(mt[1])); $('#metrics').textContent=m; }catch(e){}
+    // kpis
+    const provs = h.providers||{}; const total=Object.keys(provs).length;
+    const ok=Object.values(provs).filter(v=>v.s==='ok').length;
+    const cool=Object.values(provs).filter(v=>String(v.s).startsWith('cooling')).length;
+    const reqs=(await tget('/metrics').catch(()=>'')).match(/omni_router_requests_total (\d+)/);
+    $('#kpis').innerHTML = `
+      <div class="card"><h3>Providers</h3><div class="val">${ok}/${total}</div><div class="sub">${cool} cooling</div></div>
+      <div class="card"><h3>Requests</h3><div class="val">${reqs?fmt(parseInt(reqs[1])):'0'}</div><div class="sub">total proxied</div></div>
+      <div class="card"><h3>Models</h3><div class="val">${allModels.length||47}</div><div class="sub">OpenAI + Anthropic</div></div>
+      <div class="card"><h3>Mode</h3><div class="val" style="font-size:18px">Free-first failover</div><div class="sub">3-key rotation · capability routing</div></div>`;
+    // providers
+    $('#providers').innerHTML = Object.entries(provs).map(([k,v])=>{
+      const cls = v.s==='ok'?'ok':String(v.s).startsWith('cooling')?'cool':v.s==='untested'?'untested':'err';
+      return `<div class="prov ${cls}"><h4>${k}</h4><div class="row"><span>${v.s}</span><span>ok ${v.ok} / fail ${v.fail}</span></div>${v.err?`<div class="row" style="color:var(--err);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.err}</div>`:''}</div>`;
+    }).join('');
+    // caps
+    const caps = {coding:'Dots3 / Nemotron Ultra', reasoning:'GLM-5.2 / Gemini', vision:'Nemotron Nano VL / Gemini', fast:'Nemotron Lightning', 'long-context':'Nemotron Ultra 1M / Gemini'};
+    $('#caps').innerHTML = Object.entries(caps).map(([k,v])=>`<div class="cap"><b>router-${k}</b><div class="m">${v}</div></div>`).join('');
+  }catch(e){ $('#status').textContent='● offline'; $('#status').className='badge err'; }
+}
+async function loadModels(){
+  try{
+    const d = await jget('/v1/models', {'anthropic-version':'2023-06-01'});
+    const list = d.data||d.data||[];
+    allModels = list.map(x=>({id:x.id, name:x.display_name||x.id}));
+    renderModels('');
+  }catch(e){}
+}
+function renderModels(q){
+  const f = allModels.filter(m=> !q || (m.id+m.name).toLowerCase().includes(q.toLowerCase()));
+  $('#models').innerHTML = f.slice(0,30).map(m=>{
+    const isFree = m.id.includes(':free')||m.id.includes('free')||m.id.startsWith('router-');
+    return `<span class="tag ${isFree?'free':'paid'}">${m.id}</span>`;
+  }).join('') + (f.length>30?`<span class="tag">+${f.length-30} more</span>`:'');
+  $('#modelRows').innerHTML = f.slice(0,25).map(m=>{
+    const isFree = m.id.includes(':free')||m.id.includes('free')||m.id.startsWith('router-');
+    return `<tr><td><code>${m.id}</code></td><td class="muted">${(m.name.split('—')[1]||'').trim().split(' ')[0]||'—'}</td><td><span class="tag ${isFree?'free':'paid'}">${isFree?'free':'paid'}</span></td></tr>`;
+  }).join('');
+}
+async function loadLogs(){
+  try{
+    const r = await fetch('/v1/logs'); if(!r.ok) return;
+    const j = await r.json(); const logs=j.logs||[];
+    if(!logs.length) return;
+    $('#logs').innerHTML = logs.slice(-20).reverse().map(l=>`<tr><td class="muted">${new Date(l.ts*1000).toLocaleTimeString()}</td><td><code>${l.model}</code></td><td>${l.provider||'—'}</td><td>${l.tokens_in||0}/${l.tokens_out||0}</td><td>${l.ms||'—'}</td><td>${l.status==='ok'?'<span style="color:var(--ok)">ok</span>':'<span style="color:var(--err)">'+l.status+'</span>'}</td></tr>`).join('');
+  }catch(e){}
+}
+$('#q').addEventListener('input', e=> renderModels(e.target.value));
+loadModels(); refresh(); loadLogs();
+setInterval(()=>{ refresh(); loadLogs(); }, 4000);
+setInterval(()=>{ $('#clock').textContent=new Date().toLocaleTimeString(); }, 1000);
+</script>
+</body>
+</html>

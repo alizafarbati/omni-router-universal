@@ -101,8 +101,17 @@ for p in PROVIDERS:
 LOCK = threading.Lock()
 MENU_ITEMS = {}
 
-# ---------------------------------------------------------------- metrics + virtual keys
+# ---------------------------------------------------------------- metrics + virtual keys + request log
 METRICS = {"requests_total": 0, "requests_failed": 0, "tokens_in": 0, "tokens_out": 0, "provider_counts": {}, "started_at": time.time()}
+REQUEST_LOG = []  # last 100: {ts, model, provider, tokens_in, tokens_out, ms, status}
+REQUEST_LOG_LOCK = threading.Lock()
+
+
+def _log_request(model, provider, tokens_in, tokens_out, ms, status):
+    with REQUEST_LOG_LOCK:
+        REQUEST_LOG.append({"ts": time.time(), "model": model, "provider": provider, "tokens_in": tokens_in or 0, "tokens_out": tokens_out or 0, "ms": ms or 0, "status": status})
+        if len(REQUEST_LOG) > 100:
+            del REQUEST_LOG[0]
 
 
 def _load_virtual_keys():
@@ -173,6 +182,10 @@ def _record_metrics(provider, usage):
         if usage:
             METRICS["tokens_in"] += int(usage.get("prompt_tokens", 0) or 0)
             METRICS["tokens_out"] += int(usage.get("completion_tokens", 0) or 0)
+
+def _is_retryable_status(code):
+    return code in (429, 502, 503, 504, 529)
+
 
 def mark(name, ok, err=""):
     with LOCK:
@@ -373,43 +386,60 @@ def route(path, headers, payload, model, smart=False):
                     em = tm
             jp["model"] = em if em else model
         t0 = time.time()
-        try:
-            resp, ct, body = call_upstream(p, path, headers, jp)
-            # curl_cffi style: status on response object
+        resp = ct = body = None
+        success = False
+        for _retry in range(2):
+            try:
+                resp, ct, body = call_upstream(p, path, headers, jp)
+            except (HTTPError, URLError, OSError) as e:
+                if _retry == 0:
+                    log(f"    retry {p['name']} (network) after 1s: {e}")
+                    time.sleep(1)
+                    continue
+                mark(p["name"], False, e)
+                if isinstance(e, HTTPError) and e.code == 401:
+                    with LOCK:
+                        STATE[p["name"]]["next"] = time.time() + 3600
+                break
+            # check HTTP status
             if hasattr(resp, "status_code") and resp.status_code >= 400:
+                if _is_retryable_status(resp.status_code) and _retry == 0:
+                    try:
+                        ra = resp.headers.get("Retry-After") or resp.headers.get("retry-after") or "1"
+                        wait = min(int(str(ra).split(",")[0].strip()), 5)
+                    except Exception:
+                        wait = 1
+                    log(f"    retry {p['name']} after {wait}s (HTTP {resp.status_code})")
+                    time.sleep(wait)
+                    continue
                 err_txt = body[:300] if not isinstance(body, bool) else b""
                 log(f"    provider {p['name']} -> HTTP {resp.status_code}: {err_txt[:200]}")
                 mark(p["name"], False, f"HTTP {resp.status_code} {err_txt[:150]}")
-                if resp.status_code in (401, 403, 429):  # bad key / quota - back off long
+                if resp.status_code in (401, 403, 429):
                     with LOCK:
                         STATE[p["name"]]["next"] = time.time() + 3600
-                elif resp.status_code == 503:  # transient overload - brief
+                elif resp.status_code in (502, 503, 504, 529):
                     with LOCK:
                         STATE[p["name"]]["next"] = time.time() + 30
-                continue
-            mark(p["name"], True)
-            # metrics: parse usage if non-stream
-            usage = None
-            if not isinstance(body, bool):
-                try:
-                    _j = json.loads(body)
-                    usage = _j.get("usage")
-                except Exception:
-                    pass
-            _record_metrics(p["name"], usage)
-            return {"provider":p["name"], "response":resp, "ct":ct, "body":body,
-                    "stream": isinstance(body, bool), "attempts":attempts, "ms":int((time.time()-t0)*1000)}
-        except HTTPError as e:
-            err_body = b""
-            try: err_body = e.read()[:300]
-            except Exception: pass
-            mark(p["name"], False, f"HTTP {e.code} {err_body[:150]}")
-            if e.code == 401:  # bad key - skip permanently this run
-                with LOCK:
-                    STATE[p["name"]]["next"] = time.time() + 3600
-        except (URLError, Exception) as e:
-            mark(p["name"], False, e)
-        time.sleep(0.25)
+                break
+            success = True
+            break
+        if not success:
+            time.sleep(0.25)
+            continue
+        # success
+        mark(p["name"], True)
+        # metrics: parse usage if non-stream
+        usage = None
+        if not isinstance(body, bool):
+            try:
+                _j = json.loads(body)
+                usage = _j.get("usage")
+            except Exception:
+                pass
+        _record_metrics(p["name"], usage)
+        return {"provider":p["name"], "response":resp, "ct":ct, "body":body,
+                "stream": isinstance(body, bool), "attempts":attempts, "ms":int((time.time()-t0)*1000)}
     return {"error":"ALL_PROVIDERS_FAILED","attempts":attempts}
 
 
@@ -620,9 +650,19 @@ def route_anthropic(handler, payload, is_stream):
         handler.send_header("Content-Length", str(len(body)))
         handler.end_headers()
         handler.wfile.write(body)
+        _log_request(model, "none", 0, 0, 0, "failed")
+        with LOCK:
+            METRICS["requests_failed"] += 1
         return True
     r = result["response"]
     status = int(getattr(r, "status_code") or getattr(r, "status") or 200)
+    # request log for anthropic
+    try:
+        _ub = result.get("body", b"")
+        _u = json.loads(_ub).get("usage", {}) if not isinstance(_ub, bool) and _ub else {}
+        _log_request(model, result["provider"], _u.get("prompt_tokens", 0), _u.get("completion_tokens", 0), result.get("ms", 0), "ok")
+    except Exception:
+        _log_request(model, result["provider"], 0, 0, result.get("ms", 0), "ok")
     handler.send_response(status)
     handler.send_header("X-Router-Provider", result["provider"])
     handler.send_header("X-Router-Attempts", ",".join(result["attempts"]))
@@ -835,9 +875,19 @@ def handle(handler, path, headers, payload):
         handler.send_header("Content-Length", str(len(body)))
         handler.end_headers()
         handler.wfile.write(body)
+        _log_request(model, "none", 0, 0, 0, "failed")
+        with LOCK:
+            METRICS["requests_failed"] += 1
         return True
     r = result["response"]
     status = int(getattr(r, "status_code") or getattr(r, "status") or 200)
+    # log success
+    try:
+        _ub = result.get("body", b"")
+        _u = json.loads(_ub).get("usage", {}) if not isinstance(_ub, bool) and _ub else {}
+        _log_request(model, result["provider"], _u.get("prompt_tokens", 0), _u.get("completion_tokens", 0), result.get("ms", 0), "ok")
+    except Exception:
+        _log_request(model, result["provider"], 0, 0, result.get("ms", 0), "ok")
     handler.send_response(status)
     ct = r.headers.get("Content-Type") if r.headers else ""
     if ct:
@@ -895,6 +945,36 @@ class RouterHandler(BaseHTTPRequestHandler):
             body = json.dumps(out).encode()
             self.send_response(200); self.send_header("Content-Type","application/json")
             self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
+        if self.path in ("/ui", "/dashboard", "/ui/", "/dashboard/"):
+            dash = os.path.join(BASE_DIR, "dashboard.html")
+            # also try parent dir for pip-installed layout
+            if not os.path.exists(dash):
+                dash = os.path.join(os.path.dirname(BASE_DIR), "omni_router", "dashboard.html")
+            if os.path.exists(dash):
+                body = open(dash, "rb").read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            body = b"<h1>OmniRouter</h1><p>Dashboard not found. <a href='/health'>/health</a> <a href='/metrics'>/metrics</a></p>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        if self.path in ("/v1/logs", "/logs"):
+            with REQUEST_LOG_LOCK:
+                logs = list(REQUEST_LOG)
+            body = json.dumps({"logs": logs, "count": len(logs)}).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         log(f"  404 GET {self.path}")
         self.send_response(404); self.send_header("Content-Length","0"); self.end_headers()
     def do_POST(self):

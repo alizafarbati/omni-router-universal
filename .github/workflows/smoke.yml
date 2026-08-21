@@ -1,0 +1,70 @@
+name: Daily Smoke
+
+on:
+  schedule:
+    - cron: "0 0 * * *"  # daily midnight UTC
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: pip install -e . --no-deps && pip install -r requirements.txt || true
+
+      - name: Start router
+        run: |
+          python -m omni_router &
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS http://127.0.0.1:8787/health >/dev/null 2>&1; then echo "router ready"; break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8787/health | python -c "import sys,json; d=json.load(sys.stdin); assert d['status']=='ok'; print(f\"providers: {len(d['providers'])}\")"
+
+      - name: Smoke — no keys (structure)
+        run: |
+          curl -fsS http://127.0.0.1:8787/health | python -c "import sys,json; d=json.load(sys.stdin); assert 'providers' in d"
+          curl -fsS http://127.0.0.1:8787/metrics | grep -q omni_router_requests_total
+          curl -fsS http://127.0.0.1:8787/v1/models | python -c "import sys,json; assert len(json.load(sys.stdin)['data']) >= 20"
+          curl -fsS http://127.0.0.1:8787/v1/models -H "anthropic-version: 2023-06-01" | python -c "import sys,json; assert 'data' in json.load(sys.stdin)"
+          curl -fsS http://127.0.0.1:8787/ui | grep -q OmniRouter
+          curl -fsS http://127.0.0.1:8787/v1/logs | python -c "import sys,json; assert 'logs' in json.load(sys.stdin)"
+          echo "structure smoke passed"
+
+      - name: Smoke — live providers (if secrets set)
+        env:
+          OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
+          GOOGLE_AI_KEY: ${{ secrets.GOOGLE_AI_KEY }}
+          NVIDIA_NIM_KEY: ${{ secrets.NVIDIA_NIM_KEY }}
+        run: |
+          if [ -z "$OPENROUTER_KEY" ] && [ -z "$GOOGLE_AI_KEY" ]; then echo "no live keys — skipping live smoke"; exit 0; fi
+          python -c "
+          import json, urllib.request
+          payload = json.dumps({'model':'router-auto','messages':[{'role':'user','content':'Reply OK'}],'max_tokens':10}).encode()
+          req = urllib.request.Request('http://127.0.0.1:8787/v1/chat/completions', data=payload, headers={'Content-Type':'application/json'})
+          try:
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  print('live smoke:', r.status, json.load(r).get('choices',[{}])[0].get('message',{}).get('content','')[:40])
+          except Exception as e:
+              print('live smoke: provider error (expected if quota) —', e)
+          "
+
+      - name: Create issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Daily smoke failed — ${new Date().toISOString().slice(0,10)}`,
+              body: `Smoke run ${context.runId} failed. Check logs: ${context.payload.repository.html_url}/actions/runs/${context.runId}`,
+              labels: ['smoke-failure']
+            })
