@@ -125,12 +125,15 @@ def test_candidates_smart_is_free_first():
     ordered = r.candidate_order_smart()
     assert ordered[0]["name"].split("[")[0] == "google-ai-studio"
 
-def test_smart_target_model_coding():
+def test_smart_target_model_coding(monkeypatch):
+    # In CI no keys = no healthy providers; mock healthy for this unit test
+    monkeypatch.setattr(r, "healthy", lambda p: True)
     tgt = r.smart_target_model("router-code")
     assert tgt is not None
     assert tgt[0] in r.CAPABILITIES["coding"]
 
-def test_smart_target_model_reasoning():
+def test_smart_target_model_reasoning(monkeypatch):
+    monkeypatch.setattr(r, "healthy", lambda p: True)
     tgt = r.smart_target_model("router-reason")
     assert tgt is not None
     assert tgt[0] in r.CAPABILITIES["reasoning"]
