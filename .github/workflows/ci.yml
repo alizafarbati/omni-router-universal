@@ -90,5 +90,22 @@ jobs:
           curl -fsS http://127.0.0.1:8787/health | python -c "import sys,json; assert json.load(sys.stdin)['status']=='ok'; print('health OK')"
           curl -fsS http://127.0.0.1:8787/metrics | grep -q omni_router_requests_total && echo "metrics OK"
           curl -fsS http://127.0.0.1:8787/v1/models | python -c "import sys,json; d=json.load(sys.stdin); assert len(d['data'])>=20; print('models OK:', len(d['data']))"
+          curl -fsS http://127.0.0.1:8787/ui | grep -q OmniRouter && echo "ui OK"
+          curl -fsS http://127.0.0.1:8787/v1/logs | python -c "import sys,json; assert 'logs' in json.load(sys.stdin); print('logs OK')"
           docker rm -f omni
           echo "docker smoke passed"
+
+  helm:
+    name: helm lint + template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+      - name: Lint
+        run: helm lint helm/omni-router
+      - name: Template
+        run: |
+          helm template test helm/omni-router --set secrets.OPENROUTER_KEY=dummy | grep -q "kind: Deployment" && echo "helm template OK"
+          helm template test helm/omni-router | grep -q "livenessProbe" && echo "probes OK"

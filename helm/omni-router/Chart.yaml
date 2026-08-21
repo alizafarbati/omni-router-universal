@@ -1,0 +1,18 @@
+apiVersion: v2
+name: omni-router
+description: Smart free-tier AI router — OpenAI + Anthropic dual API
+type: application
+version: 0.4.1
+appVersion: "0.4.1"
+keywords:
+  - ai
+  - llm
+  - gateway
+  - openai
+  - anthropic
+home: https://github.com/alizafarbati/omni-router-universal
+sources:
+  - https://github.com/alizafarbati/omni-router-universal
+maintainers:
+  - name: Ali Zafar
+    url: https://github.com/alizafarbati

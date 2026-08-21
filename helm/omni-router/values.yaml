@@ -1,0 +1,61 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/alizafarbati/omni-router-universal
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+service:
+  type: ClusterIP
+  port: 8787
+
+env:
+  OMNI_HOST: "0.0.0.0"
+  OMNI_PORT: "8787"
+
+secrets:
+  OPENROUTER_KEY: ""
+  GOOGLE_AI_KEY: ""
+  NVIDIA_NIM_KEY: ""
+  GROQ_KEY: ""
+  CEREBRAS_KEY: ""
+  GH_PAT: ""
+  OPENCODE_GO_KEY: ""
+  DEEPSEEK_KEY: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 64Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8787
+  initialDelaySeconds: 10
+  periodSeconds: 15
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8787
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+serviceAccount:
+  create: false
+  name: ""
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: omni-router.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

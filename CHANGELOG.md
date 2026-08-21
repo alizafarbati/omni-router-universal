@@ -1,5 +1,18 @@
 ﻿# Changelog
 
+## [0.5.0] - 2026-08-21
+
+### Added
+- **Helm chart** (helm/omni-router) — proper chart with helm lint + helm template CI.
+- **Examples** (examples/curl.sh, python_openai.py, claude_code.sh).
+- **Community health** — CODE_OF_CONDUCT.md, issue/PR templates.
+
+### Fixed
+- Valid-key hang: fast 429 with Retry-After if all providers cooling (no more 10s hang).
+- Coverage: mocked provider tests so CI actually exercises routing.
+
+
+
 ## [0.4.1] - 2026-08-21
 
 ### Fixed
@@ -41,5 +54,6 @@ All notable changes to this project will be documented in this file.
 ## [0.1.0] - 2026-08-21
 
 - Initial public release â€” smart free-tier router (Gemini Ã—3 rotation, OpenRouter 20 free models, NVIDIA NIM, Go sub, capability routing, OpenAI + Anthropic dual API, gateway discovery, health dashboard).
+
 
 

@@ -17,7 +17,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-VERSION = "0.4.1"
+VERSION = "0.5.0"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MAX_REQUEST_BYTES = 200 * 1024  # 200KB — prevents single huge request from starving the server
 CONFIG_PATH = os.environ.get("OMNI_CONFIG", os.path.join(BASE_DIR, "providers.json"))
@@ -380,7 +380,18 @@ def route(path, headers, payload, model, smart=False):
     attempts = []
     # capability alias resolution: router-code/router-reason/router-vision/router-fast/router-long
     cap_target = smart_target_model(model) if model in CAP_ROUTERS else None
-    for entry in candidates(model, smart):
+    cands = candidates(model, smart)
+    # Fast fail if all candidates are cooling (no point trying + retrying)
+    if cands:
+        all_cooling = True
+        for _p, _ in cands:
+            s = STATE.get(_p["name"], {}).get("status", "")
+            if not str(s).startswith("cooling"):
+                all_cooling = False
+                break
+        if all_cooling:
+            return {"error": "ALL_PROVIDERS_COOLING", "attempts": [p["name"] for p, _ in cands]}
+    for entry in cands:
         p, forced_model = entry
         attempts.append(p["name"])
         jp = dict(payload)
@@ -647,14 +658,17 @@ def route_anthropic(handler, payload, is_stream):
     log(f"  ANTHROPIC->OAI model={model} payload={json.dumps(oai)[:600]}")
     result = route_with_fallback("/chat/completions", {}, oai, model, smart=smart)
     if "error" in result:
-        log(f"  ANTHROPIC-ROUTE FAILED model={model} smart={smart}")
+        is_cooling = result.get("error") == "ALL_PROVIDERS_COOLING"
+        log(f"  ANTHROPIC-ROUTE FAILED model={model} smart={smart} {'(cooling)' if is_cooling else ''}")
         log(f"    translated payload: {json.dumps(oai)[:800]}")
-        body = json.dumps({"type": "error", "error": {"type": "router_error",
-                "message": f"all providers failed: {result['attempts']}"}}).encode()
-        handler.send_response(503)
+        msg = f"all providers {'cooling' if is_cooling else 'failed'}: {result['attempts']}"
+        body = json.dumps({"type": "error", "error": {"type": "router_error", "message": msg}}).encode()
+        handler.send_response(429 if is_cooling else 503)
         handler.send_header("Content-Type", "application/json")
         handler.send_header("X-Router-Provider", "none")
         handler.send_header("X-Router-Attempts", ",".join(result["attempts"]))
+        if is_cooling:
+            handler.send_header("Retry-After", "60")
         handler.send_header("Content-Length", str(len(body)))
         handler.end_headers()
         handler.wfile.write(body)
@@ -879,11 +893,15 @@ def handle(handler, path, headers, payload):
     jp["max_tokens"] = min(payload.get("max_tokens", 4096), 4096)
     result = route_with_fallback("/chat/completions", headers, jp, model, smart=smart)
     if "error" in result:
-        body = json.dumps({"error":{"message":f"all providers failed: {result['attempts']}","type":"router_error"}}).encode()
-        handler.send_response(503)
+        is_cooling = result.get("error") == "ALL_PROVIDERS_COOLING"
+        msg = f"all providers {'cooling' if is_cooling else 'failed'}: {result['attempts']}"
+        body = json.dumps({"error":{"message": msg, "type":"router_error"}}).encode()
+        handler.send_response(429 if is_cooling else 503)
         handler.send_header("Content-Type","application/json")
         handler.send_header("X-Router-Provider","none")
         handler.send_header("X-Router-Attempts", ",".join(result["attempts"]))
+        if is_cooling:
+            handler.send_header("Retry-After", "60")
         handler.send_header("Content-Length", str(len(body)))
         handler.end_headers()
         handler.wfile.write(body)
@@ -1075,4 +1093,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
