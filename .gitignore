@@ -27,3 +27,8 @@ Thumbs.db
 # IDE
 .idea/
 .vscode/
+
+dist/
+build/
+*.egg-info/
+
