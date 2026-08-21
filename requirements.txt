@@ -1,0 +1,3 @@
+# curl_cffi gives browser-identical TLS fingerprinting (beats Cloudflare bot checks)
+# and is the recommended transport. The router auto-falls-back to stdlib if absent.
+curl_cffi>=0.7.0

@@ -1,0 +1,123 @@
+{
+  "providers": [
+    {
+      "name": "google-ai-studio",
+      "base": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "key_env": "GOOGLE_AI_KEY",
+      "keys": [],
+      "models": ["gemini-flash-latest", "gemini-3.7-flash", "gemini-2.5-flash"],
+      "routed": ["gemini-flash-latest", "gemini-3.7-flash", "gemini-2.5-flash"],
+      "free": true,
+      "cooldown": 30
+    },
+    {
+      "name": "openrouter-free",
+      "base": "https://openrouter.ai/api/v1",
+      "key_env": "OPENROUTER_KEY",
+      "models": ["*"],
+      "routed": [
+        "dots-studio/dots-3-note-preview:free",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "nvidia/nemotron-3.5-lightning:free",
+        "poolside/laguna-s-2.1:free",
+        "poolside/laguna-xs-2.1:free",
+        "z-ai/glm-5.2:free",
+        "cohere/north-mini-code:free",
+        "google/gemma-4-31b-it:free",
+        "google/gemma-4-26b-a4b-it:free",
+        "openai/gpt-oss-20b:free",
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "nvidia/nemotron-3-nano-30b-a3b:free",
+        "nvidia/nemotron-nano-12b-v2-vl:free",
+        "nvidia/nemotron-nano-9b-v2:free",
+        "liquid/lfm-2.5-2.6b:free",
+        "openrouter/free"
+      ],
+      "free": true,
+      "cooldown": 30
+    },
+    {
+      "name": "nvidia-nim",
+      "base": "https://integrate.api.nvidia.com/v1",
+      "key_env": "NVIDIA_NIM_KEY",
+      "models": ["deepseek-ai/deepseek-v4-flash-0731", "deepseek-ai/deepseek-coder-6.7b-instruct", "moonshotai/kimi-k3", "moonshotai/kimi-k2.6", "z-ai/glm-5.2", "nvidia/nemotron-3-ultra-550b-a55b", "meta/llama-4-maverick", "*"],
+      "routed": ["deepseek-ai/deepseek-v4-flash-0731", "moonshotai/kimi-k3"],
+      "free": true,
+      "cooldown": 30,
+      "signup": "https://build.nvidia.com"
+    },
+    {
+      "name": "groq",
+      "base": "https://api.groq.com/openai/v1",
+      "key_env": "GROQ_KEY",
+      "models": ["gpt-oss-120b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "*"],
+      "routed": ["llama-3.3-70b-versatile"],
+      "free": true,
+      "cooldown": 30
+    },
+    {
+      "name": "cerebras",
+      "base": "https://api.cerebras.ai/v1",
+      "key_env": "CEREBRAS_KEY",
+      "models": ["llama-3.3-70b", "*"],
+      "routed": ["llama-3.3-70b"],
+      "free": true,
+      "cooldown": 30
+    },
+    {
+      "name": "cloudflare",
+      "base": "https://api.cloudflare.com/client/v4/accounts/{acct}/ai/v1",
+      "key_env": "CF_KEY",
+      "models": ["*"],
+      "routed": ["@cf/meta/llama-3.3-70b-instruct-fp8-fast"],
+      "free": true,
+      "cooldown": 30
+    },
+    {
+      "name": "github-models",
+      "base": "https://models.github.ai/inference",
+      "key_env": "GH_PAT",
+      "models": ["gpt-4.1", "gpt-4o-mini", "*"],
+      "routed": ["gpt-4.1"],
+      "free": true,
+      "cooldown": 30
+    },
+    {
+      "name": "opencode-go",
+      "base": "https://opencode.ai/zen/go/v1",
+      "key_env": "OPENCODE_GO_KEY",
+      "models": ["deepseek-v4-flash", "deepseek-v4-pro", "kimi-k2.7-code", "qwen3.7-plus", "*"],
+      "routed": ["deepseek-v4-flash"],
+      "free": false,
+      "cooldown": 20
+    },
+    {
+      "name": "mistral",
+      "base": "https://api.mistral.ai/v1",
+      "key_env": "MISTRAL_KEY",
+      "models": ["*"],
+      "routed": ["mistral-small-latest"],
+      "free": true,
+      "cooldown": 30
+    },
+    {
+      "name": "novita",
+      "base": "https://api.novita.ai/v3/openai",
+      "key_env": "NOVITA_KEY",
+      "models": ["*"],
+      "routed": ["meta-llama/llama-3.3-70b-instruct"],
+      "free": false,
+      "cooldown": 20
+    },
+    {
+      "name": "deepseek",
+      "base": "https://api.deepseek.com/v1",
+      "key_env": "DEEPSEEK_KEY",
+      "models": ["deepseek-chat", "deepseek-reasoner"],
+      "routed": ["deepseek-chat"],
+      "free": false,
+      "cooldown": 15
+    }
+  ]
+}
