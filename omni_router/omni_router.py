@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 OMNI-ROUTER v0.3.0 - Smart Free-Tier AI Router
 Pools every free/cheap provider, routes smartly with health tracking & cooldowns.
@@ -6,6 +6,7 @@ OpenAI-compatible: point any client (opencode/Cursor/curl) at http://127.0.0.1:8
 Zero dependencies - pure Python stdlib.
 Built by Ali Zafar (https://github.com/alizafarbati)
 """
+
 import gzip
 import json
 import os
@@ -28,6 +29,7 @@ MENU = os.path.join(BASE_DIR, "menu.txt")
 CTX = ssl.create_default_context()
 CTX.check_hostname = True
 
+
 def log(msg):
     line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}"
     print(line, flush=True)
@@ -37,21 +39,111 @@ def log(msg):
     except Exception:
         pass
 
+
 # ---------------------------------------------------------------- config
 DEFAULTS = {
-  "providers": [
-    {"name":"openrouter-free","base":"https://openrouter.ai/api/v1","key_env":"OPENROUTER_KEY","models":["*"],"routed":["nvidia/nemotron-3-ultra-550b-a55b:free","nvidia/nemotron-3.5-lightning:free","poolside/laguna-s-2.1:free","openrouter/free"],"free":True,"cooldown":30},
-    {"name":"google-ai-studio","base":"https://generativelanguage.googleapis.com/v1beta/openai","key_env":"GOOGLE_AI_KEY","keys":[],"models":["gemini-flash-latest","gemini-3.7-flash","gemini-2.5-flash"],"routed":["gemini-flash-latest","gemini-3.7-flash","gemini-2.5-flash"],"free":True,"cooldown":30},
-    {"name":"groq","base":"https://api.groq.com/openai/v1","key_env":"GROQ_KEY","models":["gpt-oss-120b","llama-3.3-70b-versatile","llama-3.1-8b-instant","*"],"routed":["llama-3.3-70b-versatile"],"free":True,"cooldown":30},
-    {"name":"cerebras","base":"https://api.cerebras.ai/v1","key_env":"CEREBRAS_KEY","models":["llama-3.3-70b","*"],"routed":["llama-3.3-70b"],"free":True,"cooldown":30},
-    {"name":"cloudflare","base":"https://api.cloudflare.com/client/v4/accounts/{acct}/ai/v1","key_env":"CF_KEY","models":["*"],"routed":["@cf/meta/llama-3.3-70b-instruct-fp8-fast"],"free":True,"cooldown":30},
-    {"name":"opencode-go","base":"https://opencode.ai/zen/go/v1","key_env":"OPENCODE_GO_KEY","models":["deepseek-v4-flash","deepseek-v4-pro","kimi-k2.7-code","qwen3.7-plus","*"],"routed":["deepseek-v4-flash"],"free":False,"cooldown":20},
-    {"name":"github-models","base":"https://models.github.ai/inference","key_env":"GH_PAT","models":["gpt-4.1","gpt-4o-mini","*"],"free":True,"cooldown":30},
-    {"name":"novita","base":"https://api.novita.ai/v3/openai","key_env":"NOVITA_KEY","models":["*"],"free":False,"cooldown":20},
-    {"name":"mistral","base":"https://api.mistral.ai/v1","key_env":"MISTRAL_KEY","models":["*"],"free":True,"cooldown":30},
-    {"name":"deepseek","base":"https://api.deepseek.com/v1","key_env":"DEEPSEEK_KEY","models":["deepseek-chat","deepseek-reasoner"],"free":False,"cooldown":15}
-  ]
+    "providers": [
+        {
+            "name": "openrouter-free",
+            "base": "https://openrouter.ai/api/v1",
+            "key_env": "OPENROUTER_KEY",
+            "models": ["*"],
+            "routed": [
+                "nvidia/nemotron-3-ultra-550b-a55b:free",
+                "nvidia/nemotron-3.5-lightning:free",
+                "poolside/laguna-s-2.1:free",
+                "openrouter/free",
+            ],
+            "free": True,
+            "cooldown": 30,
+        },
+        {
+            "name": "google-ai-studio",
+            "base": "https://generativelanguage.googleapis.com/v1beta/openai",
+            "key_env": "GOOGLE_AI_KEY",
+            "keys": [],
+            "models": ["gemini-flash-latest", "gemini-3.7-flash", "gemini-2.5-flash"],
+            "routed": ["gemini-flash-latest", "gemini-3.7-flash", "gemini-2.5-flash"],
+            "free": True,
+            "cooldown": 30,
+        },
+        {
+            "name": "groq",
+            "base": "https://api.groq.com/openai/v1",
+            "key_env": "GROQ_KEY",
+            "models": ["gpt-oss-120b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "*"],
+            "routed": ["llama-3.3-70b-versatile"],
+            "free": True,
+            "cooldown": 30,
+        },
+        {
+            "name": "cerebras",
+            "base": "https://api.cerebras.ai/v1",
+            "key_env": "CEREBRAS_KEY",
+            "models": ["llama-3.3-70b", "*"],
+            "routed": ["llama-3.3-70b"],
+            "free": True,
+            "cooldown": 30,
+        },
+        {
+            "name": "cloudflare",
+            "base": "https://api.cloudflare.com/client/v4/accounts/{acct}/ai/v1",
+            "key_env": "CF_KEY",
+            "models": ["*"],
+            "routed": ["@cf/meta/llama-3.3-70b-instruct-fp8-fast"],
+            "free": True,
+            "cooldown": 30,
+        },
+        {
+            "name": "opencode-go",
+            "base": "https://opencode.ai/zen/go/v1",
+            "key_env": "OPENCODE_GO_KEY",
+            "models": [
+                "deepseek-v4-flash",
+                "deepseek-v4-pro",
+                "kimi-k2.7-code",
+                "qwen3.7-plus",
+                "*",
+            ],
+            "routed": ["deepseek-v4-flash"],
+            "free": False,
+            "cooldown": 20,
+        },
+        {
+            "name": "github-models",
+            "base": "https://models.github.ai/inference",
+            "key_env": "GH_PAT",
+            "models": ["gpt-4.1", "gpt-4o-mini", "*"],
+            "free": True,
+            "cooldown": 30,
+        },
+        {
+            "name": "novita",
+            "base": "https://api.novita.ai/v3/openai",
+            "key_env": "NOVITA_KEY",
+            "models": ["*"],
+            "free": False,
+            "cooldown": 20,
+        },
+        {
+            "name": "mistral",
+            "base": "https://api.mistral.ai/v1",
+            "key_env": "MISTRAL_KEY",
+            "models": ["*"],
+            "free": True,
+            "cooldown": 30,
+        },
+        {
+            "name": "deepseek",
+            "base": "https://api.deepseek.com/v1",
+            "key_env": "DEEPSEEK_KEY",
+            "models": ["deepseek-chat", "deepseek-reasoner"],
+            "free": False,
+            "cooldown": 15,
+        },
+    ]
 }
+
 
 def load_config():
     cfg = DEFAULTS
@@ -67,11 +159,16 @@ def load_config():
         try:
             with open(auth, encoding="utf-8") as f:
                 a = json.load(f)
-            if a.get("openrouter"): kv["OPENROUTER_KEY"] = a["openrouter"]["key"]
-            if a.get("opencode-go"): kv["OPENCODE_GO_KEY"] = a["opencode-go"]["key"]
-            if a.get("deepseek"): kv["DEEPSEEK_KEY"] = a["deepseek"]["key"]
-            if a.get("openai"): kv["OPENAI_KEY"] = a["openai"]["key"]
-            if a.get("nvidia"): kv["NVIDIA_KEY"] = a["nvidia"]["key"]
+            if a.get("openrouter"):
+                kv["OPENROUTER_KEY"] = a["openrouter"]["key"]
+            if a.get("opencode-go"):
+                kv["OPENCODE_GO_KEY"] = a["opencode-go"]["key"]
+            if a.get("deepseek"):
+                kv["DEEPSEEK_KEY"] = a["deepseek"]["key"]
+            if a.get("openai"):
+                kv["OPENAI_KEY"] = a["openai"]["key"]
+            if a.get("nvidia"):
+                kv["NVIDIA_KEY"] = a["nvidia"]["key"]
         except Exception as e:
             log(f"auth.json read error: {e}")
     for p in cfg.get("providers", []):
@@ -80,6 +177,7 @@ def load_config():
             os.environ[env] = kv[env]
     return cfg
 
+
 CFG = load_config()
 PROVIDERS = CFG.get("providers", DEFAULTS["providers"])
 
@@ -87,14 +185,14 @@ PROVIDERS = CFG.get("providers", DEFAULTS["providers"])
 EXPANDED = []
 for p in PROVIDERS:
     keys = list(p.get("keys") or [])
-    envk = os.environ.get(p.get("key_env",""), "")
+    envk = os.environ.get(p.get("key_env", ""), "")
     if envk:
         keys.insert(0, envk)
     if not keys:
         keys = [None]
     for i, k in enumerate(keys):
         e = dict(p)
-        e["name"] = f'{p["name"]}[{i}]' if len(keys) > 1 else p["name"]
+        e["name"] = f"{p['name']}[{i}]" if len(keys) > 1 else p["name"]
         e.pop("keys", None)
         e["api_key"] = k
         EXPANDED.append(e)
@@ -104,20 +202,43 @@ PROVIDERS = EXPANDED
 STATE = {}
 for p in PROVIDERS:
     STATE[p["name"]] = {
-        "status":"untested","next":0.0,"fails":0,"ok":0,"fail":0,"last_err":"","cooldown":p.get("cooldown",30)
+        "status": "untested",
+        "next": 0.0,
+        "fails": 0,
+        "ok": 0,
+        "fail": 0,
+        "last_err": "",
+        "cooldown": p.get("cooldown", 30),
     }
 LOCK = threading.Lock()
 MENU_ITEMS = {}
 
 # ---------------------------------------------------------------- metrics + virtual keys + request log
-METRICS = {"requests_total": 0, "requests_failed": 0, "tokens_in": 0, "tokens_out": 0, "provider_counts": {}, "started_at": time.time()}
+METRICS = {
+    "requests_total": 0,
+    "requests_failed": 0,
+    "tokens_in": 0,
+    "tokens_out": 0,
+    "provider_counts": {},
+    "started_at": time.time(),
+}
 REQUEST_LOG = []  # last 100: {ts, model, provider, tokens_in, tokens_out, ms, status}
 REQUEST_LOG_LOCK = threading.Lock()
 
 
 def _log_request(model, provider, tokens_in, tokens_out, ms, status):
     with REQUEST_LOG_LOCK:
-        REQUEST_LOG.append({"ts": time.time(), "model": model, "provider": provider, "tokens_in": tokens_in or 0, "tokens_out": tokens_out or 0, "ms": ms or 0, "status": status})
+        REQUEST_LOG.append(
+            {
+                "ts": time.time(),
+                "model": model,
+                "provider": provider,
+                "tokens_in": tokens_in or 0,
+                "tokens_out": tokens_out or 0,
+                "ms": ms or 0,
+                "status": status,
+            }
+        )
         if len(REQUEST_LOG) > 100:
             del REQUEST_LOG[0]
 
@@ -131,7 +252,10 @@ def _load_virtual_keys():
             return d.get("keys", d) if isinstance(d, dict) else {}
         except Exception:
             pass
-    for cand in (os.path.join(BASE_DIR, "..", "configs", "virtual_keys.json"), os.path.join(BASE_DIR, "virtual_keys.json")):
+    for cand in (
+        os.path.join(BASE_DIR, "..", "configs", "virtual_keys.json"),
+        os.path.join(BASE_DIR, "virtual_keys.json"),
+    ):
         cand = os.path.abspath(cand)
         if os.path.exists(cand):
             try:
@@ -165,7 +289,9 @@ def _check_virtual_key(headers):
     daily = int(cfg.get("daily_limit", 0) or 0)
     now = time.time()
     with VK_LOCK:
-        st = VK_STATE.setdefault(tok, {"window_start": now, "count": 0, "daily_count": 0, "daily_reset": now})
+        st = VK_STATE.setdefault(
+            tok, {"window_start": now, "count": 0, "daily_count": 0, "daily_reset": now}
+        )
         # daily reset (24h rolling)
         if now - st["daily_reset"] >= 86400:
             st["daily_count"] = 0
@@ -191,6 +317,7 @@ def _record_metrics(provider, usage):
             METRICS["tokens_in"] += int(usage.get("prompt_tokens", 0) or 0)
             METRICS["tokens_out"] += int(usage.get("completion_tokens", 0) or 0)
 
+
 def _is_retryable_status(code):
     return code in (429, 502, 503, 504, 529)
 
@@ -199,13 +326,18 @@ def mark(name, ok, err=""):
     with LOCK:
         s = STATE[name]
         if ok:
-            s["status"] = "ok"; s["ok"] += 1; s["fails"] = 0
+            s["status"] = "ok"
+            s["ok"] += 1
+            s["fails"] = 0
         else:
-            s["fail"] += 1; s["fails"] += 1; s["last_err"] = str(err)[:200]
-            cd = s["cooldown"] * min(16, max(1, 2**(s["fails"]-1)))
+            s["fail"] += 1
+            s["fails"] += 1
+            s["last_err"] = str(err)[:200]
+            cd = s["cooldown"] * min(16, max(1, 2 ** (s["fails"] - 1)))
             s["next"] = time.time() + cd
             s["status"] = f"cooling({int(cd)}s)"
             log(f"  FAIL {name}: {err}")
+
 
 def healthy(p):
     s = STATE[p["name"]]
@@ -217,10 +349,13 @@ def healthy(p):
         return False
     return True
 
+
 def matches(p, model):
     ms = p.get("models", ["*"])
-    if "*" in ms: return True
+    if "*" in ms:
+        return True
     return model in ms
+
 
 def routed_model(p, smart=True):
     if smart:
@@ -232,8 +367,12 @@ def routed_model(p, smart=True):
 
 
 CAP_ROUTERS = {
-    "router-code": "coding", "router-reason": "reasoning", "router-reasoning": "reasoning",
-    "router-vision": "vision", "router-fast": "fast", "router-long": "long-context",
+    "router-code": "coding",
+    "router-reason": "reasoning",
+    "router-reasoning": "reasoning",
+    "router-vision": "vision",
+    "router-fast": "fast",
+    "router-long": "long-context",
 }
 
 
@@ -276,11 +415,13 @@ def candidate_order_smart():
         if any(x.get("free") for x in groups[grp]):
             return 1
         return 2
+
     ordered = sorted(order_names, key=sort_key)
     out = []
     for g in ordered:
         out.extend(groups[g])
     return out
+
 
 def candidates(model, smart):
     order = []
@@ -313,29 +454,39 @@ def candidates(model, smart):
         order = explicit + star
     return order
 
+
 # ---------------------------------------------------------------- upstream call
 def call_upstream(p, path, headers, payload, timeout=90):
     base = p["base"]
     if "{acct}" in base:
-        acct = os.environ.get("CF_ACCOUNT_ID","")
+        acct = os.environ.get("CF_ACCOUNT_ID", "")
         base = base.replace("{acct}", acct)
     url = base.rstrip("/") + path
-    key = p.get("api_key") or os.environ.get(p.get("key_env",""), "")
+    key = p.get("api_key") or os.environ.get(p.get("key_env", ""), "")
     hdrs = dict(headers)
     hdrs["Authorization"] = f"Bearer {key}"
-    hdrs["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    hdrs["User-Agent"] = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    )
     hdrs["Accept"] = "application/json, text/event-stream"
     hdrs.pop("Host", None)
     hdrs.pop("Content-Length", None)
     try:
         from curl_cffi import requests as cr
+
         want_stream = bool(payload and payload.get("stream"))
         if payload is not None:
-            resp = cr.post(url, json=payload, headers=hdrs,
-                           impersonate="chrome124", timeout=timeout, stream=want_stream)
+            resp = cr.post(
+                url,
+                json=payload,
+                headers=hdrs,
+                impersonate="chrome124",
+                timeout=timeout,
+                stream=want_stream,
+            )
         else:
             resp = cr.get(url, headers=hdrs, impersonate="chrome124", timeout=timeout)
-        ct = resp.headers.get("Content-Type","")
+        ct = resp.headers.get("Content-Type", "")
         if "text/event-stream" in ct:
             # stream: but if upstream already errored, read the error body
             if hasattr(resp, "status_code") and resp.status_code >= 400:
@@ -352,13 +503,14 @@ def call_upstream(p, path, headers, payload, timeout=90):
     body = json.dumps(payload).encode() if payload is not None else None
     req = Request(url, data=body, headers=hdrs, method="POST" if payload is not None else "GET")
     resp = urlopen(req, timeout=timeout, context=CTX)
-    ct = resp.headers.get("Content-Type","")
+    ct = resp.headers.get("Content-Type", "")
     if "text/event-stream" in ct:
         return resp, ct, True
     raw = resp.read()
     if resp.headers.get("Content-Encoding") == "gzip":
         raw = gzip.decompress(raw)
     return resp, ct, raw
+
 
 def stream_body(resp):
     # curl_cffi response
@@ -374,6 +526,7 @@ def stream_body(resp):
         if not chunk:
             break
         yield chunk
+
 
 # ---------------------------------------------------------------- router core
 def route(path, headers, payload, model, smart=False):
@@ -424,7 +577,11 @@ def route(path, headers, payload, model, smart=False):
             if hasattr(resp, "status_code") and resp.status_code >= 400:
                 if _is_retryable_status(resp.status_code) and _retry == 0:
                     try:
-                        ra = resp.headers.get("Retry-After") or resp.headers.get("retry-after") or "1"
+                        ra = (
+                            resp.headers.get("Retry-After")
+                            or resp.headers.get("retry-after")
+                            or "1"
+                        )
                         wait = min(int(str(ra).split(",")[0].strip()), 5)
                     except Exception:
                         wait = 1
@@ -457,9 +614,16 @@ def route(path, headers, payload, model, smart=False):
             except Exception:
                 pass
         _record_metrics(p["name"], usage)
-        return {"provider":p["name"], "response":resp, "ct":ct, "body":body,
-                "stream": isinstance(body, bool), "attempts":attempts, "ms":int((time.time()-t0)*1000)}
-    return {"error":"ALL_PROVIDERS_FAILED","attempts":attempts}
+        return {
+            "provider": p["name"],
+            "response": resp,
+            "ct": ct,
+            "body": body,
+            "stream": isinstance(body, bool),
+            "attempts": attempts,
+            "ms": int((time.time() - t0) * 1000),
+        }
+    return {"error": "ALL_PROVIDERS_FAILED", "attempts": attempts}
 
 
 def route_with_fallback(path, headers, payload, model, smart=False):
@@ -475,6 +639,7 @@ def route_with_fallback(path, headers, payload, model, smart=False):
         result["attempts"] = result.get("attempts", []) + ["->smart:"] + fb.get("attempts", [])
     return result
 
+
 # ---------------------------------------------------------------- handlers
 def anthropic_to_openai(payload):
     """Translate Anthropic Messages API request -> OpenAI chat.completions."""
@@ -485,7 +650,9 @@ def anthropic_to_openai(payload):
         if isinstance(sys, str):
             sys_text = sys
         else:
-            sys_text = "".join(b.get("text", "") for b in sys if isinstance(b, dict) and b.get("type") == "text")
+            sys_text = "".join(
+                b.get("text", "") for b in sys if isinstance(b, dict) and b.get("type") == "text"
+            )
         if sys_text:
             msgs.append({"role": "system", "content": sys_text})
     o.pop("system", None)
@@ -506,19 +673,44 @@ def anthropic_to_openai(payload):
                     src = b.get("source", {})
                     media = src.get("media_type", "image/png")
                     data = src.get("data", "")
-                    images.append({"type": "image_url", "image_url": {"url": f"data:{media};base64,{data}"}})
+                    images.append(
+                        {"type": "image_url", "image_url": {"url": f"data:{media};base64,{data}"}}
+                    )
                 elif bt == "tool_use":
-                    tool_calls.append({"id": b.get("id", ""), "type": "function",
-                                       "function": {"name": b.get("name", ""),
-                                                    "arguments": json.dumps(b.get("input", {}))}})
+                    tool_calls.append(
+                        {
+                            "id": b.get("id", ""),
+                            "type": "function",
+                            "function": {
+                                "name": b.get("name", ""),
+                                "arguments": json.dumps(b.get("input", {})),
+                            },
+                        }
+                    )
                 elif bt == "tool_result":
                     trc = b.get("content", "")
                     if isinstance(trc, list):
-                        trc = "".join(x.get("text", "") for x in trc if isinstance(x, dict) and x.get("type") == "text")
-                    tool_results.append({"role": "tool", "tool_call_id": b.get("tool_use_id", ""), "content": str(trc)})
+                        trc = "".join(
+                            x.get("text", "")
+                            for x in trc
+                            if isinstance(x, dict) and x.get("type") == "text"
+                        )
+                    tool_results.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": b.get("tool_use_id", ""),
+                            "content": str(trc),
+                        }
+                    )
         if role == "assistant":
             if tool_calls:
-                msgs.append({"role": "assistant", "content": "".join(text_parts) or None, "tool_calls": tool_calls})
+                msgs.append(
+                    {
+                        "role": "assistant",
+                        "content": "".join(text_parts) or None,
+                        "tool_calls": tool_calls,
+                    }
+                )
             else:
                 msgs.append({"role": "assistant", "content": "".join(text_parts)})
         elif role == "user":
@@ -533,9 +725,18 @@ def anthropic_to_openai(payload):
         msgs.extend(tool_results)
     o["messages"] = msgs
     if payload.get("tools"):
-        o["tools"] = [{"type": "function", "function": {"name": t.get("name"),
-                       "description": t.get("description", ""), "parameters": t.get("input_schema", {})}}
-                      for t in payload["tools"] if isinstance(t, dict) and t.get("name")]
+        o["tools"] = [
+            {
+                "type": "function",
+                "function": {
+                    "name": t.get("name"),
+                    "description": t.get("description", ""),
+                    "parameters": t.get("input_schema", {}),
+                },
+            }
+            for t in payload["tools"]
+            if isinstance(t, dict) and t.get("name")
+        ]
     if payload.get("tool_choice"):
         tc = payload["tool_choice"]
         if isinstance(tc, dict):
@@ -555,39 +756,71 @@ def openai_to_anthropic(obj, model):
     text = msg.get("content")
     if text:
         content.append({"type": "text", "text": text})
-    for tc in (msg.get("tool_calls") or []):
+    for tc in msg.get("tool_calls") or []:
         try:
             inp = json.loads(tc["function"].get("arguments", "{}"))
         except Exception:
             inp = {}
-        content.append({"type": "tool_use", "id": tc.get("id", ""),
-                        "name": tc["function"].get("name", ""), "input": inp})
+        content.append(
+            {
+                "type": "tool_use",
+                "id": tc.get("id", ""),
+                "name": tc["function"].get("name", ""),
+                "input": inp,
+            }
+        )
     fr = choice.get("finish_reason")
     if not content and msg.get("tool_calls"):
         sr = "tool_use"
     else:
-        sr = {"stop": "end_turn", "length": "max_tokens", "tool_calls": "tool_use",
-              "function_call": "tool_use"}.get(fr, "end_turn")
+        sr = {
+            "stop": "end_turn",
+            "length": "max_tokens",
+            "tool_calls": "tool_use",
+            "function_call": "tool_use",
+        }.get(fr, "end_turn")
     usage = obj.get("usage", {})
-    return {"id": obj.get("id", "msg_" + uuid.uuid4().hex[:12]), "type": "message",
-            "role": "assistant", "model": obj.get("model", model), "content": content,
-            "stop_reason": sr, "stop_sequence": None,
-            "usage": {"input_tokens": usage.get("prompt_tokens", 0),
-                      "output_tokens": usage.get("completion_tokens", 0)}}
+    return {
+        "id": obj.get("id", "msg_" + uuid.uuid4().hex[:12]),
+        "type": "message",
+        "role": "assistant",
+        "model": obj.get("model", model),
+        "content": content,
+        "stop_reason": sr,
+        "stop_sequence": None,
+        "usage": {
+            "input_tokens": usage.get("prompt_tokens", 0),
+            "output_tokens": usage.get("completion_tokens", 0),
+        },
+    }
 
 
 def iter_anthropic_stream(stream_iter, model):
     """Translate OpenAI SSE chunk stream -> Anthropic SSE events (yields bytes)."""
     msg_id = "msg_" + uuid.uuid4().hex[:12]
+
     def ev(name, data):
         return (f"event: {name}\ndata: {json.dumps(data)}\n\n").encode()
-    yield ev("message_start", {"type": "message_start", "message": {
-        "id": msg_id, "type": "message", "role": "assistant", "model": model,
-        "content": [], "stop_reason": None, "stop_sequence": None,
-        "usage": {"input_tokens": 0, "output_tokens": 0}}})
+
+    yield ev(
+        "message_start",
+        {
+            "type": "message_start",
+            "message": {
+                "id": msg_id,
+                "type": "message",
+                "role": "assistant",
+                "model": model,
+                "content": [],
+                "stop_reason": None,
+                "stop_sequence": None,
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+            },
+        },
+    )
     buf = b""
     text_open = False
-    tools_state = {}   # oai index -> {anthropic_index, id, name}
+    tools_state = {}  # oai index -> {anthropic_index, id, name}
     next_block = 0
     got_finish = False
     for chunk in stream_iter:
@@ -610,31 +843,62 @@ def iter_anthropic_stream(stream_iter, model):
             if not choices:
                 continue
             delta = choices[0].get("delta", {}) or {}
-            idx = choices[0].get("index", 0)
+            choices[0].get("index", 0)
             # text deltas
             txt = delta.get("content")
             if txt:
                 if not text_open:
-                    yield ev("content_block_start", {"type": "content_block_start",
-                            "index": next_block, "content_block": {"type": "text", "text": ""}})
+                    yield ev(
+                        "content_block_start",
+                        {
+                            "type": "content_block_start",
+                            "index": next_block,
+                            "content_block": {"type": "text", "text": ""},
+                        },
+                    )
                     text_open = True
                     next_block += 1
-                yield ev("content_block_delta", {"type": "content_block_delta",
-                        "index": next_block - 1, "delta": {"type": "text_delta", "text": txt}})
+                yield ev(
+                    "content_block_delta",
+                    {
+                        "type": "content_block_delta",
+                        "index": next_block - 1,
+                        "delta": {"type": "text_delta", "text": txt},
+                    },
+                )
             # tool call deltas
-            for tc in (delta.get("tool_calls") or []):
+            for tc in delta.get("tool_calls") or []:
                 tcidx = tc.get("index", 0)
                 fn = tc.get("function", {}) or {}
                 if tcidx not in tools_state:
-                    tools_state[tcidx] = {"ant_idx": next_block, "id": tc.get("id", ""), "name": fn.get("name", "")}
-                    yield ev("content_block_start", {"type": "content_block_start",
-                            "index": next_block, "content_block": {"type": "tool_use",
-                            "id": tc.get("id", ""), "name": fn.get("name", ""), "input": {}}})
+                    tools_state[tcidx] = {
+                        "ant_idx": next_block,
+                        "id": tc.get("id", ""),
+                        "name": fn.get("name", ""),
+                    }
+                    yield ev(
+                        "content_block_start",
+                        {
+                            "type": "content_block_start",
+                            "index": next_block,
+                            "content_block": {
+                                "type": "tool_use",
+                                "id": tc.get("id", ""),
+                                "name": fn.get("name", ""),
+                                "input": {},
+                            },
+                        },
+                    )
                     next_block += 1
                 if fn.get("arguments"):
-                    yield ev("content_block_delta", {"type": "content_block_delta",
+                    yield ev(
+                        "content_block_delta",
+                        {
+                            "type": "content_block_delta",
                             "index": tools_state[tcidx]["ant_idx"],
-                            "delta": {"type": "input_json_delta", "partial_json": fn["arguments"]}})
+                            "delta": {"type": "input_json_delta", "partial_json": fn["arguments"]},
+                        },
+                    )
             if choices[0].get("finish_reason"):
                 got_finish = True
     # close open blocks
@@ -642,8 +906,20 @@ def iter_anthropic_stream(stream_iter, model):
         yield ev("content_block_stop", {"type": "content_block_stop", "index": next_block - 1})
     for s in tools_state.values():
         yield ev("content_block_stop", {"type": "content_block_stop", "index": s["ant_idx"]})
-    yield ev("message_delta", {"type": "message_delta", "delta": {"stop_reason": "end_turn" if not got_finish else "tool_use" if tools_state else "end_turn"},
-                               "usage": {"output_tokens": 0}})
+    yield ev(
+        "message_delta",
+        {
+            "type": "message_delta",
+            "delta": {
+                "stop_reason": "end_turn"
+                if not got_finish
+                else "tool_use"
+                if tools_state
+                else "end_turn"
+            },
+            "usage": {"output_tokens": 0},
+        },
+    )
     yield ev("message_stop", {"type": "message_stop"})
 
 
@@ -659,10 +935,14 @@ def route_anthropic(handler, payload, is_stream):
     result = route_with_fallback("/chat/completions", {}, oai, model, smart=smart)
     if "error" in result:
         is_cooling = result.get("error") == "ALL_PROVIDERS_COOLING"
-        log(f"  ANTHROPIC-ROUTE FAILED model={model} smart={smart} {'(cooling)' if is_cooling else ''}")
+        log(
+            f"  ANTHROPIC-ROUTE FAILED model={model} smart={smart} {'(cooling)' if is_cooling else ''}"
+        )
         log(f"    translated payload: {json.dumps(oai)[:800]}")
         msg = f"all providers {'cooling' if is_cooling else 'failed'}: {result['attempts']}"
-        body = json.dumps({"type": "error", "error": {"type": "router_error", "message": msg}}).encode()
+        body = json.dumps(
+            {"type": "error", "error": {"type": "router_error", "message": msg}}
+        ).encode()
         handler.send_response(429 if is_cooling else 503)
         handler.send_header("Content-Type", "application/json")
         handler.send_header("X-Router-Provider", "none")
@@ -682,7 +962,14 @@ def route_anthropic(handler, payload, is_stream):
     try:
         _ub = result.get("body", b"")
         _u = json.loads(_ub).get("usage", {}) if not isinstance(_ub, bool) and _ub else {}
-        _log_request(model, result["provider"], _u.get("prompt_tokens", 0), _u.get("completion_tokens", 0), result.get("ms", 0), "ok")
+        _log_request(
+            model,
+            result["provider"],
+            _u.get("prompt_tokens", 0),
+            _u.get("completion_tokens", 0),
+            result.get("ms", 0),
+            "ok",
+        )
     except Exception:
         _log_request(model, result["provider"], 0, 0, result.get("ms", 0), "ok")
     handler.send_response(status)
@@ -724,10 +1011,22 @@ MODEL_META = {
     "gemini-flash-latest": ("Gemini Flash Latest - Google (3-account rotation)", "google"),
     "gemini-3.7-flash": ("Gemini 3.7 Flash - Google", "google"),
     "gemini-2.5-flash": ("Gemini 2.5 Flash - Google", "google"),
-    "dots-studio/dots-3-note-preview:free": ("Dots 3 Note 280B MoE 512K ctx - OpenRouter free (top coder)", "openrouter"),
-    "nvidia/nemotron-3-ultra-550b-a55b:free": ("Nemotron 3 Ultra 550B 1M ctx - OpenRouter free", "openrouter"),
-    "nvidia/nemotron-3-super-120b-a12b:free": ("Nemotron 3 Super 120B - OpenRouter free", "openrouter"),
-    "nvidia/nemotron-3.5-lightning:free": ("Nemotron 3.5 Lightning 1M ctx - OpenRouter free (fastest)", "openrouter"),
+    "dots-studio/dots-3-note-preview:free": (
+        "Dots 3 Note 280B MoE 512K ctx - OpenRouter free (top coder)",
+        "openrouter",
+    ),
+    "nvidia/nemotron-3-ultra-550b-a55b:free": (
+        "Nemotron 3 Ultra 550B 1M ctx - OpenRouter free",
+        "openrouter",
+    ),
+    "nvidia/nemotron-3-super-120b-a12b:free": (
+        "Nemotron 3 Super 120B - OpenRouter free",
+        "openrouter",
+    ),
+    "nvidia/nemotron-3.5-lightning:free": (
+        "Nemotron 3.5 Lightning 1M ctx - OpenRouter free (fastest)",
+        "openrouter",
+    ),
     "poolside/laguna-s-2.1:free": ("Laguna S 2.1 262K - OpenRouter free (coder)", "openrouter"),
     "poolside/laguna-xs-2.1:free": ("Laguna XS 2.1 262K - OpenRouter free", "openrouter"),
     "z-ai/glm-5.2:free": ("GLM 5.2 256K - OpenRouter free (reasoning)", "openrouter"),
@@ -735,9 +1034,15 @@ MODEL_META = {
     "google/gemma-4-31b-it:free": ("Gemma 4 31B 262K - OpenRouter free", "openrouter"),
     "google/gemma-4-26b-a4b-it:free": ("Gemma 4 26B 262K - OpenRouter free", "openrouter"),
     "openai/gpt-oss-20b:free": ("GPT-OSS 20B 131K - OpenRouter free", "openrouter"),
-    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": ("Nemotron Nano Omni 30B - OpenRouter free", "openrouter"),
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": (
+        "Nemotron Nano Omni 30B - OpenRouter free",
+        "openrouter",
+    ),
     "nvidia/nemotron-3-nano-30b-a3b:free": ("Nemotron Nano 30B - OpenRouter free", "openrouter"),
-    "nvidia/nemotron-nano-12b-v2-vl:free": ("Nemotron Nano 12B VL - OpenRouter free (vision)", "openrouter"),
+    "nvidia/nemotron-nano-12b-v2-vl:free": (
+        "Nemotron Nano 12B VL - OpenRouter free (vision)",
+        "openrouter",
+    ),
     "nvidia/nemotron-nano-9b-v2:free": ("Nemotron Nano 9B - OpenRouter free", "openrouter"),
     "liquid/lfm-2.5-2.6b:free": ("LFM 2.5 2.6B 128K - OpenRouter free", "openrouter"),
     "openrouter/free": ("OpenRouter Auto-Free - smartest free model per prompt", "openrouter"),
@@ -761,19 +1066,50 @@ MODEL_META = {
 
 # capability-tagged routing: models mapped to what they're BEST at
 CAPABILITIES = {
-    "coding": ["dots-studio/dots-3-note-preview:free", "cohere/north-mini-code:free",
-               "poolside/laguna-s-2.1:free", "poolside/laguna-xs-2.1:free",
-               "nvidia/nemotron-3-ultra-550b-a55b:free", "nvidia/nemotron-3-super-120b-a12b:free",
-               "kimi-k2.7-code", "deepseek-v4-flash", "deepseek-ai/deepseek-coder-6.7b-instruct",
-               "gpt-4.1", "gpt-oss-120b", "qwen3.7-plus", "gpt-4o-mini"],
-    "reasoning": ["z-ai/glm-5.2:free", "gemini-flash-latest", "gemini-3.7-flash",
-                  "deepseek-reasoner", "deepseek-v4-pro", "deepseek-ai/deepseek-v4-flash-0731"],
-    "vision": ["nvidia/nemotron-nano-12b-v2-vl:free", "gemini-flash-latest", "gemini-3.7-flash",
-                "qwen3.7-plus", "dots-studio/dots-3-note-preview:free"],
-    "fast": ["nvidia/nemotron-3.5-lightning:free", "nvidia/nemotron-nano-9b-v2:free",
-             "liquid/lfm-2.5-2.6b:free", "gemini-2.5-flash", "llama-3.1-8b-instant"],
-    "long-context": ["nvidia/nemotron-3-ultra-550b-a55b:free", "nvidia/nemotron-3.5-lightning:free",
-                     "dots-studio/dots-3-note-preview:free", "gemini-flash-latest", "deepseek-v4-flash"],
+    "coding": [
+        "dots-studio/dots-3-note-preview:free",
+        "cohere/north-mini-code:free",
+        "poolside/laguna-s-2.1:free",
+        "poolside/laguna-xs-2.1:free",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "nvidia/nemotron-3-super-120b-a12b:free",
+        "kimi-k2.7-code",
+        "deepseek-v4-flash",
+        "deepseek-ai/deepseek-coder-6.7b-instruct",
+        "gpt-4.1",
+        "gpt-oss-120b",
+        "qwen3.7-plus",
+        "gpt-4o-mini",
+    ],
+    "reasoning": [
+        "z-ai/glm-5.2:free",
+        "gemini-flash-latest",
+        "gemini-3.7-flash",
+        "deepseek-reasoner",
+        "deepseek-v4-pro",
+        "deepseek-ai/deepseek-v4-flash-0731",
+    ],
+    "vision": [
+        "nvidia/nemotron-nano-12b-v2-vl:free",
+        "gemini-flash-latest",
+        "gemini-3.7-flash",
+        "qwen3.7-plus",
+        "dots-studio/dots-3-note-preview:free",
+    ],
+    "fast": [
+        "nvidia/nemotron-3.5-lightning:free",
+        "nvidia/nemotron-nano-9b-v2:free",
+        "liquid/lfm-2.5-2.6b:free",
+        "gemini-2.5-flash",
+        "llama-3.1-8b-instant",
+    ],
+    "long-context": [
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "nvidia/nemotron-3.5-lightning:free",
+        "dots-studio/dots-3-note-preview:free",
+        "gemini-flash-latest",
+        "deepseek-v4-flash",
+    ],
 }
 
 
@@ -809,12 +1145,18 @@ def model_list_anthropic():
     for i in sorted(ids):
         disp, owner = MODEL_META.get(i, (i, "omni-router"))
         if i in CAP_ROUTERS:
-            disp = f"Router {i.split('-',1)[1].title()} - auto-picks best free model for capability"
-        data.append({"id": i, "type": "model", "display_name": disp,
-                     "created_at": created})
+            disp = (
+                f"Router {i.split('-', 1)[1].title()} - auto-picks best free model for capability"
+            )
+        data.append({"id": i, "type": "model", "display_name": disp, "created_at": created})
         created += 1
-    return {"data": data, "has_more": False, "first_id": data[0]["id"] if data else None,
-            "last_id": data[-1]["id"] if data else None}
+    return {
+        "data": data,
+        "has_more": False,
+        "first_id": data[0]["id"] if data else None,
+        "last_id": data[-1]["id"] if data else None,
+    }
+
 
 def _metrics_text():
     up = int(time.time() - METRICS["started_at"])
@@ -836,7 +1178,6 @@ def _metrics_text():
         f"omni_router_uptime_seconds {up}",
     ]
     for prov, cnt in METRICS["provider_counts"].items():
-        safe = prov.replace("-", "_").replace(".", "_").replace("[", "_").replace("]", "")
         lines.append(f'omni_router_provider_requests{{provider="{prov}"}} {cnt}')
     return "\n".join(lines) + "\n"
 
@@ -846,7 +1187,9 @@ def handle(handler, path, headers, payload):
     if VIRTUAL_KEYS and path not in ("/health", "/v1/health", "/metrics", "/v1/metrics"):
         ok, tok = _check_virtual_key(headers)
         if ok is False:
-            body = json.dumps({"error": {"message": "invalid virtual key", "type": "authentication_error"}}).encode()
+            body = json.dumps(
+                {"error": {"message": "invalid virtual key", "type": "authentication_error"}}
+            ).encode()
             handler.send_response(401)
             handler.send_header("Content-Type", "application/json")
             handler.send_header("Content-Length", str(len(body)))
@@ -856,7 +1199,14 @@ def handle(handler, path, headers, payload):
                 METRICS["requests_failed"] += 1
             return True
         if ok in ("rpm", "daily"):
-            body = json.dumps({"error": {"message": f"virtual key rate limited ({ok})", "type": "rate_limit_error"}}).encode()
+            body = json.dumps(
+                {
+                    "error": {
+                        "message": f"virtual key rate limited ({ok})",
+                        "type": "rate_limit_error",
+                    }
+                }
+            ).encode()
             handler.send_response(429)
             handler.send_header("Content-Type", "application/json")
             handler.send_header("Content-Length", str(len(body)))
@@ -873,32 +1223,42 @@ def handle(handler, path, headers, payload):
         return json.dumps(model_list()).encode()
     if "messages" in path or "complete" in path or path.rstrip("/").endswith("/v1/messages"):
         if not payload:
-            body = json.dumps({"type":"error","error":{"type":"invalid_request","message":"missing body"}}).encode()
-            handler.send_response(400); handler.send_header("Content-Type","application/json")
-            handler.send_header("Content-Length", str(len(body))); handler.end_headers()
-            handler.wfile.write(body); return True
+            body = json.dumps(
+                {"type": "error", "error": {"type": "invalid_request", "message": "missing body"}}
+            ).encode()
+            handler.send_response(400)
+            handler.send_header("Content-Type", "application/json")
+            handler.send_header("Content-Length", str(len(body)))
+            handler.end_headers()
+            handler.wfile.write(body)
+            return True
         is_stream = bool(payload.get("stream"))
         return route_anthropic(handler, payload, is_stream)
     if not payload or payload.get("messages") is None and payload.get("prompt") is None:
-        return json.dumps({"error":{"message":"missing messages","type":"invalid_request"}}).encode()
-    model = payload.get("model","router-auto")
-    smart = model in ("router-smart", "router-auto") or model in CAP_ROUTERS or model.startswith("router-")
+        return json.dumps(
+            {"error": {"message": "missing messages", "type": "invalid_request"}}
+        ).encode()
+    model = payload.get("model", "router-auto")
+    smart = (
+        model in ("router-smart", "router-auto")
+        or model in CAP_ROUTERS
+        or model.startswith("router-")
+    )
     jp = dict(payload)
     if smart:
         jp.pop("model", None)
-        requested = "router(auto)"
     else:
-        requested = model
+        pass
     jp.pop("max_tokens", None)
     jp["max_tokens"] = min(payload.get("max_tokens", 4096), 4096)
     result = route_with_fallback("/chat/completions", headers, jp, model, smart=smart)
     if "error" in result:
         is_cooling = result.get("error") == "ALL_PROVIDERS_COOLING"
         msg = f"all providers {'cooling' if is_cooling else 'failed'}: {result['attempts']}"
-        body = json.dumps({"error":{"message": msg, "type":"router_error"}}).encode()
+        body = json.dumps({"error": {"message": msg, "type": "router_error"}}).encode()
         handler.send_response(429 if is_cooling else 503)
-        handler.send_header("Content-Type","application/json")
-        handler.send_header("X-Router-Provider","none")
+        handler.send_header("Content-Type", "application/json")
+        handler.send_header("X-Router-Provider", "none")
         handler.send_header("X-Router-Attempts", ",".join(result["attempts"]))
         if is_cooling:
             handler.send_header("Retry-After", "60")
@@ -915,7 +1275,14 @@ def handle(handler, path, headers, payload):
     try:
         _ub = result.get("body", b"")
         _u = json.loads(_ub).get("usage", {}) if not isinstance(_ub, bool) and _ub else {}
-        _log_request(model, result["provider"], _u.get("prompt_tokens", 0), _u.get("completion_tokens", 0), result.get("ms", 0), "ok")
+        _log_request(
+            model,
+            result["provider"],
+            _u.get("prompt_tokens", 0),
+            _u.get("completion_tokens", 0),
+            result.get("ms", 0),
+            "ok",
+        )
     except Exception:
         _log_request(model, result["provider"], 0, 0, result.get("ms", 0), "ok")
     handler.send_response(status)
@@ -926,7 +1293,7 @@ def handle(handler, path, headers, payload):
     handler.send_header("X-Router-Attempts", ",".join(result["attempts"]))
     handler.send_header("X-Router-Latency-ms", str(result["ms"]))
     if result["stream"]:
-        handler.send_header("Transfer-Encoding","chunked")
+        handler.send_header("Transfer-Encoding", "chunked")
         handler.end_headers()
         try:
             for chunk in stream_body(r):
@@ -948,15 +1315,20 @@ def handle(handler, path, headers, payload):
         handler.wfile.write(b)
     return True
 
+
 class RouterHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     server_version = f"OmniRouter/{VERSION}"
-    def log_message(self, *a): pass
+
+    def log_message(self, *a):
+        pass
+
     def _read_body(self):
         ln = int(self.headers.get("Content-Length", 0) or 0)
         if ln > MAX_REQUEST_BYTES:
             return b"__TOO_LARGE__"
         return self.rfile.read(ln) if ln else None
+
     def do_GET(self):
         if self.path in ("/metrics", "/v1/metrics"):
             body = _metrics_text().encode()
@@ -966,17 +1338,45 @@ class RouterHandler(BaseHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(body)
             return
-        if self.path in ("/health","/v1/health"):
-            body = json.dumps({"status":"ok","version":VERSION,"providers":{k:{"s":STATE[k]["status"],"err":STATE[k]["last_err"],"ok":STATE[k]["ok"],"fail":STATE[k]["fail"]} for k in STATE}}).encode()
-            self.send_response(200); self.send_header("Content-Type","application/json")
-            self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
+        if self.path in ("/health", "/v1/health"):
+            body = json.dumps(
+                {
+                    "status": "ok",
+                    "version": VERSION,
+                    "providers": {
+                        k: {
+                            "s": STATE[k]["status"],
+                            "err": STATE[k]["last_err"],
+                            "ok": STATE[k]["ok"],
+                            "fail": STATE[k]["fail"],
+                        }
+                        for k in STATE
+                    },
+                }
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path == "/v1/models" or self.path == "/models":
             hl = {str(k).lower(): str(v) for k, v in dict(self.headers).items()}
             ua = hl.get("user-agent", "")
-            out = model_list_anthropic() if ("anthropic-version" in hl or "anthropic" in ua.lower() or "claude" in ua.lower()) else model_list()
+            out = (
+                model_list_anthropic()
+                if (
+                    "anthropic-version" in hl or "anthropic" in ua.lower() or "claude" in ua.lower()
+                )
+                else model_list()
+            )
             body = json.dumps(out).encode()
-            self.send_response(200); self.send_header("Content-Type","application/json")
-            self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if self.path in ("/ui", "/dashboard", "/ui/", "/dashboard/"):
             dash = os.path.join(BASE_DIR, "dashboard.html")
             # also try parent dir for pip-installed layout
@@ -1008,11 +1408,21 @@ class RouterHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
             return
         log(f"  404 GET {self.path}")
-        self.send_response(404); self.send_header("Content-Length","0"); self.end_headers()
+        self.send_response(404)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
     def do_POST(self):
         raw = self._read_body()
         if raw == b"__TOO_LARGE__":
-            body = json.dumps({"error": {"message": f"request too large (max {MAX_REQUEST_BYTES} bytes)", "type": "invalid_request"}}).encode()
+            body = json.dumps(
+                {
+                    "error": {
+                        "message": f"request too large (max {MAX_REQUEST_BYTES} bytes)",
+                        "type": "invalid_request",
+                    }
+                }
+            ).encode()
             self.send_response(413)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
@@ -1021,24 +1431,33 @@ class RouterHandler(BaseHTTPRequestHandler):
             return
         payload = None
         if raw:
-            try: payload = json.loads(raw.decode("utf-8"))
+            try:
+                payload = json.loads(raw.decode("utf-8"))
             except Exception:
-                body = json.dumps({"error":{"message":"bad json"}}).encode()
-                self.send_response(400); self.send_header("Content-Type","application/json")
-                self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body); return
-        log(f"  REQ {self.path} UA={self.headers.get('User-Agent','')[:60]}")
+                body = json.dumps({"error": {"message": "bad json"}}).encode()
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+        log(f"  REQ {self.path} UA={self.headers.get('User-Agent', '')[:60]}")
         try:
-            done = handle(self, self.path, dict(self.headers), payload)
+            handle(self, self.path, dict(self.headers), payload)
         except BrokenPipeError:
             return
         except Exception as e:
             log(f"  HANDLER ERROR: {type(e).__name__}: {e}")
-            body = json.dumps({"error":{"message":str(e),"type":"router_internal"}}).encode()
+            body = json.dumps({"error": {"message": str(e), "type": "router_internal"}}).encode()
             try:
-                self.send_response(500); self.send_header("Content-Type","application/json")
-                self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
             except Exception:
                 pass
+
 
 # ---------------------------------------------------------------- auto model-catalog refresh
 AUTO_MODELS = set()
@@ -1053,7 +1472,11 @@ def refresh_model_catalog():
         req = Request("https://openrouter.ai/api/v1/models", headers={"User-Agent": "OmniRouter"})
         with urlopen(req, timeout=15, context=CTX) as resp:
             data = json.load(resp)
-            free = [m["id"] for m in data.get("data", []) if m.get("pricing", {}).get("prompt") == "0" or ":free" in m.get("id", "")]
+            free = [
+                m["id"]
+                for m in data.get("data", [])
+                if m.get("pricing", {}).get("prompt") == "0" or ":free" in m.get("id", "")
+            ]
             with AUTO_MODELS_LOCK:
                 AUTO_MODELS.clear()
                 AUTO_MODELS.update(free)
@@ -1065,13 +1488,16 @@ def refresh_model_catalog():
 def start_auto_refresh():
     if os.environ.get("OMNI_AUTO_REFRESH", "1") == "0":
         return
+
     def _initial():
         time.sleep(30)
         refresh_model_catalog()
+
     def _loop():
         while True:
             time.sleep(3600)
             refresh_model_catalog()
+
     threading.Thread(target=_initial, daemon=True).start()
     threading.Thread(target=_loop, daemon=True).start()
 
@@ -1079,8 +1505,14 @@ def start_auto_refresh():
 def main():
     log(f"OMNI-ROUTER {VERSION} starting on http://{HOST}:{PORT}  (config: {CONFIG_PATH})")
     for p in PROVIDERS:
-        key = (p.get("api_key") or os.environ.get(p.get("key_env",""), ""))[:8] + "..." if (p.get("api_key") or os.environ.get(p.get("key_env",""), "")) else ""
-        log(f"  provider: {p['name']:<24} key={'SET('+key+')' if key else 'MISSING':<20} models={p.get('models')}")
+        key = (
+            (p.get("api_key") or os.environ.get(p.get("key_env", ""), ""))[:8] + "..."
+            if (p.get("api_key") or os.environ.get(p.get("key_env", ""), ""))
+            else ""
+        )
+        log(
+            f"  provider: {p['name']:<24} key={'SET(' + key + ')' if key else 'MISSING':<20} models={p.get('models')}"
+        )
     start_auto_refresh()
     try:
         srv = ThreadingHTTPServer((HOST, PORT), RouterHandler)
@@ -1091,7 +1523,6 @@ def main():
     except OSError as e:
         log(f"FATAL cannot bind {HOST}:{PORT}: {e}")
 
+
 if __name__ == "__main__":
     main()
-
-

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Cross-platform entry point: python -m omni_router"""
+
 import os
 import sys
 

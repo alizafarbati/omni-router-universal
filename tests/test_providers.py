@@ -2,6 +2,7 @@
 Detailed provider + harness verification — no live keys needed, pure config/logic checks.
 Ensures every provider and every agentic harness is correctly wired.
 """
+
 import json
 import omni_router.omni_router as r
 
@@ -68,7 +69,9 @@ def test_anthropic_translation_preserves_system_with_cache_control():
     payload = {
         "model": "router-auto",
         "max_tokens": 100,
-        "system": [{"type": "text", "text": "You are helpful.", "cache_control": {"type": "ephemeral"}}],
+        "system": [
+            {"type": "text", "text": "You are helpful.", "cache_control": {"type": "ephemeral"}}
+        ],
         "messages": [{"role": "user", "content": "hi"}],
     }
     oai = r.anthropic_to_openai(payload)
@@ -77,16 +80,24 @@ def test_anthropic_translation_preserves_system_with_cache_control():
 
 
 def test_anthropic_translation_handles_empty_content():
-    payload = {"model": "router-auto", "max_tokens": 100, "messages": [{"role": "user", "content": ""}]}
+    payload = {
+        "model": "router-auto",
+        "max_tokens": 100,
+        "messages": [{"role": "user", "content": ""}],
+    }
     oai = r.anthropic_to_openai(payload)
     assert len(oai["messages"]) == 1
 
 
 def test_openai_to_anthropic_handles_empty_choices():
-    obj = {"id": "x", "model": "m", "choices": [], "usage": {}}
     # Should not crash; if choices empty, our function will IndexError — that's a known edge
     # We test the normal case instead
-    obj2 = {"id": "x", "model": "m", "choices": [{"message": {"role": "assistant", "content": ""}, "finish_reason": "stop"}], "usage": {}}
+    obj2 = {
+        "id": "x",
+        "model": "m",
+        "choices": [{"message": {"role": "assistant", "content": ""}, "finish_reason": "stop"}],
+        "usage": {},
+    }
     out = r.openai_to_anthropic(obj2, "m")
     assert out["type"] == "message"
 
@@ -94,6 +105,7 @@ def test_openai_to_anthropic_handles_empty_choices():
 def test_harness_configs_exist():
     """Verify the repo has harness configs for agentic tools."""
     import pathlib
+
     repo = pathlib.Path(__file__).parent.parent
     # Check key integration files exist
     assert (repo / "configs" / "providers.example.json").exists()
@@ -105,7 +117,8 @@ def test_harness_configs_exist():
 
 
 def test_virtual_keys_file_example_valid():
-    import pathlib, json
+    import pathlib
+
     p = pathlib.Path(__file__).parent.parent / "configs" / "virtual_keys.example.json"
     if p.exists():
         data = json.loads(p.read_text(encoding="utf-8"))
