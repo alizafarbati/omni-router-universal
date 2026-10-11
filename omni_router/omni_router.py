@@ -1178,7 +1178,6 @@ def _metrics_text():
         f"omni_router_uptime_seconds {up}",
     ]
     for prov, cnt in METRICS["provider_counts"].items():
-        prov.replace("-", "_").replace(".", "_").replace("[", "_").replace("]", "")
         lines.append(f'omni_router_provider_requests{{provider="{prov}"}} {cnt}')
     return "\n".join(lines) + "\n"
 
